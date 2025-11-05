@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+`<!DOCTYPE html>
 <html>
 <head>
   <title>Manage Projects</title>
@@ -27,6 +27,9 @@
     </form>
     <div id="projectMsg"></div>
   </div>
+  <nav style="text-align:right; margin-bottom:1rem;">
+    <button onclick="window.msalAuth.signOut()" style="background:#2a4d69;color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:bold;">Logout</button>
+  </nav>
   <script>
     document.getElementById('loginBtn').onclick = async () => {
       const user = await window.msalAuth.signIn();

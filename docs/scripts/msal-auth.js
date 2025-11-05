@@ -38,4 +38,9 @@ async function getAccessToken() {
     }
   }
 }
-window.msalAuth = { signIn, getAccessToken };
+function signOut() {
+  msalInstance.logoutRedirect({
+    postLogoutRedirectUri: window.location.origin + "/logout.html"
+  });
+}
+window.msalAuth = { signIn, getAccessToken, signOut };
