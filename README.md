@@ -11,3 +11,4 @@ Hybrid volunteer sign-up tool for York Alliance Church.
 2. Register Planning Center OAuth App.
 3. Deploy /api to Azure Functions.
 4. Publish /frontend to GitHub Pages (main branch → /frontend).
+5.test sync
