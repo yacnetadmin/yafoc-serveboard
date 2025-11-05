@@ -1,40 +1,75 @@
 `<!DOCTYPE html>
 <html>
 <head>
-  <title>Manage Projects</title>
+  <title>Manage Projects - ServeBoard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="assets/style.css">
   <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
   <script src="scripts/msal-auth.js"></script>
   <script src="scripts/api.js"></script>
+  <style>
+    .main-container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .header h1 { margin: 0; color: #2a4d69; }
+    #loginBtn { background: #2a4d69; color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1rem; }
+    #loginBtn:hover { background: #4b86b4; }
+    #userInfo { color: #666; margin-bottom: 1rem; }
+    .project-section { margin-bottom: 2rem; }
+    .project-controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    #refreshProjects { background: #4b86b4; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+    #projectList { list-style: none; padding: 0; }
+    #projectList li { padding: 0.5rem; border-bottom: 1px solid #eee; }
+    #createProjectForm { display: grid; gap: 1rem; max-width: 600px; }
+    #createProjectForm input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
+    #createProjectForm button { background: #2a4d69; color: #fff; border: none; padding: 0.75rem; border-radius: 4px; cursor: pointer; }
+    #projectMsg { margin-top: 1rem; color: #4b86b4; }
+    .logout-btn { background: #2a4d69; color: #fff; border: none; padding: 0.5rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .logout-btn:hover { background: #4b86b4; }
+  </style>
 </head>
 <body>
-  <h2>Staff Portal</h2>
-  <button id="loginBtn">Sign in with Microsoft</button>
-  <div id="userInfo" style="display:none;"></div>
-  <div id="manageUI" style="display:none;">
-    <h3>Projects</h3>
-    <button id="refreshProjects">Refresh</button>
-    <ul id="projectList"></ul>
-    <h3>Create Project</h3>
-    <form id="createProjectForm">
-      <input name="title" placeholder="Title" required />
-      <input name="description" placeholder="Description" required />
-      <input name="contactEmail" placeholder="Contact Email" required />
-      <input name="contactFirstName" placeholder="Contact First Name" />
-      <input name="contactLastName" placeholder="Contact Last Name" />
-      <input name="contactPhone" placeholder="Contact Phone" />
-      <input name="category" placeholder="Category" />
-      <button type="submit">Create Project</button>
-    </form>
-    <div id="projectMsg"></div>
+  <div class="main-container">
+    <div class="header">
+      <h1>Staff Portal</h1>
+      <div id="auth-section">
+        <button id="loginBtn">Sign in with Microsoft</button>
+        <button onclick="window.msalAuth.signOut()" id="logoutBtn" class="logout-btn" style="display:none">Logout</button>
+      </div>
+    </div>
+    
+    <div id="userInfo" style="display:none;"></div>
+    <div id="manageUI" style="display:none;">
+      <div class="project-section">
+        <h2>Projects</h2>
+        <div class="project-controls">
+          <button id="refreshProjects">Refresh Projects</button>
+        </div>
+        <ul id="projectList"></ul>
+      </div>
+      
+      <div class="project-section">
+        <h2>Create New Project</h2>
+        <form id="createProjectForm">
+          <input name="title" placeholder="Project Title" required />
+          <input name="description" placeholder="Project Description" required />
+          <input name="contactEmail" placeholder="Contact Email" required type="email" />
+          <input name="contactFirstName" placeholder="Contact First Name" />
+          <input name="contactLastName" placeholder="Contact Last Name" />
+          <input name="contactPhone" placeholder="Contact Phone" type="tel" />
+          <input name="category" placeholder="Project Category" />
+          <button type="submit">Create Project</button>
+        </form>
+        <div id="projectMsg"></div>
+      </div>
+    </div>
   </div>
-  <nav style="text-align:right; margin-bottom:1rem;">
-    <button onclick="window.msalAuth.signOut()" style="background:#2a4d69;color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:bold;">Logout</button>
-  </nav>
   <script>
     document.getElementById('loginBtn').onclick = async () => {
       const user = await window.msalAuth.signIn();
       if (user) {
         document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('logoutBtn').style.display = '';
         document.getElementById('userInfo').style.display = '';
         document.getElementById('userInfo').innerText = `Signed in as: ${user.username}`;
         document.getElementById('manageUI').style.display = '';
