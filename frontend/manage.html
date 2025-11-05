@@ -1,1 +1,67 @@
-<!DOCTYPE html><html><head><title>Manage Projects</title></head><body><h2>Staff Portal</h2></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Projects</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+  <script src="scripts/msal-auth.js"></script>
+  <script src="scripts/api.js"></script>
+</head>
+<body>
+  <h2>Staff Portal</h2>
+  <button id="loginBtn">Sign in with Microsoft</button>
+  <div id="userInfo" style="display:none;"></div>
+  <div id="manageUI" style="display:none;">
+    <h3>Projects</h3>
+    <button id="refreshProjects">Refresh</button>
+    <ul id="projectList"></ul>
+    <h3>Create Project</h3>
+    <form id="createProjectForm">
+      <input name="title" placeholder="Title" required />
+      <input name="description" placeholder="Description" required />
+      <input name="contactEmail" placeholder="Contact Email" required />
+      <input name="contactFirstName" placeholder="Contact First Name" />
+      <input name="contactLastName" placeholder="Contact Last Name" />
+      <input name="contactPhone" placeholder="Contact Phone" />
+      <input name="category" placeholder="Category" />
+      <button type="submit">Create Project</button>
+    </form>
+    <div id="projectMsg"></div>
+  </div>
+  <script>
+    document.getElementById('loginBtn').onclick = async () => {
+      const user = await window.msalAuth.signIn();
+      if (user) {
+        document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('userInfo').style.display = '';
+        document.getElementById('userInfo').innerText = `Signed in as: ${user.username}`;
+        document.getElementById('manageUI').style.display = '';
+        loadProjects();
+      }
+    };
+    document.getElementById('refreshProjects').onclick = loadProjects;
+    async function loadProjects() {
+      const { status, data } = await window.api.apiCall('/api/projects');
+      const ul = document.getElementById('projectList');
+      ul.innerHTML = '';
+      if (Array.isArray(data)) {
+        data.forEach(p => {
+          const li = document.createElement('li');
+          li.textContent = `${p.title} (${p.category}) - ${p.description}`;
+          ul.appendChild(li);
+        });
+      }
+    }
+    document.getElementById('createProjectForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const body = Object.fromEntries(new FormData(form));
+      const { status, data } = await window.api.apiCall('/api/projects', 'POST', body);
+      document.getElementById('projectMsg').innerText = data.message || data.error || '';
+      if (status === 201) {
+        form.reset();
+        loadProjects();
+      }
+    };
+  </script>
+</body>
+</html>
