@@ -1,0 +1,1 @@
+// Placeholder for API calls to Azure Functions

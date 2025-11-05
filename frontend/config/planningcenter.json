@@ -1,0 +1,4 @@
+{
+  "clientId": "YOUR-PCO-CLIENT-ID",
+  "redirectUri": "https://yafoc.github.io/serveboard/signup.html"
+}

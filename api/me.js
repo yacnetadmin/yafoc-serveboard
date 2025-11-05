@@ -1,0 +1,1 @@
+// Azure Function placeholder for identity check
