@@ -1,7 +1,7 @@
 // API calls to Azure Functions
 
 // Base URL for Azure Functions (update this when deploying)
-const API_BASE_URL = "https://yafoc-serveboard.azurewebsites.net/api";  // or your actual Azure Function URL
+const API_BASE_URL = "https://yafoc-serveboard.azurewebsites.net";  // or your actual Azure Function URL
 
 // Helper to call API with Bearer token
 async function apiCall(path, method = "GET", body = null) {
