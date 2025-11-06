@@ -3,7 +3,21 @@ const { TableClient } = require("@azure/data-tables");
 
 module.exports = async function (context, req) {
   try {
-    context.log("GET /api/projects called");
+    context.log(`${req.method} /api/projects called`);
+    
+    if (req.method === "OPTIONS") {
+      context.res = {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Credentials": "true"
+        }
+      };
+      return;
+    }
 
     // Use connection string from environment variable (set in local.settings.json or Azure)
     const connectionString = process.env["AzureWebJobsStorage"] || process.env["TableStorageConnectionString"];
@@ -40,6 +54,78 @@ module.exports = async function (context, req) {
     }
 
     let projects = [];
+    if (req.method === "POST") {
+      // Handle project creation
+      const project = req.body;
+      if (!project || !project.title || !project.description || !project.contactEmail) {
+        context.res = {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true"
+          },
+          body: { error: "Missing required fields: title, description, and contactEmail" }
+        };
+        return;
+      }
+
+      try {
+        const projectId = Buffer.from(Math.random().toString()).toString('base64').substring(0, 8);
+        const category = project.category || 'General';
+        
+        await client.createEntity({
+          partitionKey: category,
+          rowKey: projectId,
+          Title: project.title,
+          Description: project.description,
+          ContactEmail: project.contactEmail,
+          ContactFirstName: project.contactFirstName || '',
+          ContactLastName: project.contactLastName || '',
+          ContactPhone: project.contactPhone || ''
+        });
+
+        context.res = {
+          status: 201,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true"
+          },
+          body: {
+            projectId,
+            category,
+            message: "Project created successfully"
+          }
+        };
+        return;
+      } catch (err) {
+        context.log.error("Error creating project:", err);
+        context.res = {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true"
+          },
+          body: {
+            error: "Failed to create project",
+            details: err.message,
+            code: err.code,
+            statusCode: err.statusCode
+          }
+        };
+        return;
+      }
+    }
+
+    // Handle GET request
     try {
         // Query all entities in the Projects table
         const entities = client.listEntities();
