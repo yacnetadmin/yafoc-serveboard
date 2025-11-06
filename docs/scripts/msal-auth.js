@@ -2,8 +2,8 @@
 // You must run `npm install @azure/msal-browser` and bundle, or use CDN in HTML
 const msalConfig = {
   auth: {
-    clientId: "1bad36bb-ea69-44f2-a2a5-0a23078b6715",
-    authority: "https://login.microsoftonline.com/organizations",
+    clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715",
+    authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a1a5-de2c1068b6db",
     redirectUri: "https://yacnetadmin.github.io/yafoc-serveboard/manage.html",
     navigateToLoginRequestUrl: false,
     cache: {
