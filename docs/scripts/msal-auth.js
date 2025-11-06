@@ -94,7 +94,7 @@ async function getAccessToken() {
 }
 function signOut() {
   msalInstance.logoutRedirect({
-    postLogoutRedirectUri: window.location.origin + "/yafoc-serveboard/logout.html"
+    postLogoutRedirectUri: "https://yacnetadmin.github.io/yafoc-serveboard/logout.html"
   });
 }
 window.msalAuth = { signIn, getAccessToken, signOut };
