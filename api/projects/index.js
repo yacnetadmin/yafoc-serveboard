@@ -2,6 +2,7 @@
 const { TableClient } = require("@azure/data-tables");
 
 module.exports = async function (context, req) {
+  try {
     context.log("GET /api/projects called");
 
     // Use connection string from environment variable (set in local.settings.json or Azure)
@@ -45,4 +46,14 @@ module.exports = async function (context, req) {
         },
         body: projects
     };
+  } catch (err) {
+    context.log.error("UNCAUGHT ERROR in projects function:", err);
+    context.res = { 
+      status: 500, 
+      body: { 
+        error: "Internal server error", 
+        details: err.message 
+      } 
+    };
+  }
 };
