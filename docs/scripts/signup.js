@@ -2,8 +2,11 @@
 // Handles volunteer signup UI and API calls
 
 async function loadProjectsAndSlots() {
-  const res = await fetch('/api/projects');
-  const projects = await res.json();
+  const { status, data: projects } = await window.api.apiCall('/projects');
+  if (status !== 200) {
+    console.error('Failed to load projects:', projects);
+    return;
+  }
   const projectSelect = document.getElementById('projectSelect');
   projectSelect.innerHTML = '';
   projects.forEach(p => {
@@ -18,8 +21,11 @@ async function loadProjectsAndSlots() {
 }
 
 async function loadSlotsForProject(projectId) {
-  const res = await fetch(`/api/projects/${projectId}/slots`);
-  const slots = await res.json();
+  const { status, data: slots } = await window.api.apiCall(`/projects/${projectId}/slots`);
+  if (status !== 200) {
+    console.error('Failed to load slots:', slots);
+    return;
+  }
   const slotSelect = document.getElementById('slotSelect');
   slotSelect.innerHTML = '';
   slots.filter(s => s.status === 'available').forEach(s => {
@@ -42,12 +48,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const slotId = form.slot.value;
     const name = form.name.value;
     const email = form.email.value;
-    const res = await fetch(`/api/projects/${projectId}/slots/${slotId}/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ volunteerName: name, volunteerEmail: email })
+    const { status, data } = await window.api.apiCall(`/projects/${projectId}/slots/${slotId}/signup`, 'POST', { 
+      volunteerName: name, 
+      volunteerEmail: email 
     });
-    const data = await res.json();
     document.getElementById('signupMsg').innerText = data.message || data.error || '';
     if (res.status === 200) {
       form.reset();

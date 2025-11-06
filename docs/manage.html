@@ -239,7 +239,9 @@
       }
 
       try {
+        console.log('Sending project data:', project);
         const { status, data } = await window.api.apiCall('/api/projects', 'POST', project);
+        console.log('API response:', { status, data });
         
         if (status === 201) {
           msgElement.innerText = 'Project created successfully!';

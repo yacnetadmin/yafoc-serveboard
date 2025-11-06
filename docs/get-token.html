@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Access Token</title>
+    <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.js"></script>
+    <script src="scripts/msal-auth.js"></script>
+</head>
+<body>
+    <h2>Get Access Token</h2>
+    <button onclick="getAndShowToken()">Get Token</button>
+    <pre id="token" style="word-wrap: break-word; white-space: pre-wrap;"></pre>
+    <script>
+        async function getAndShowToken() {
+            const token = await window.msalAuth.getAccessToken();
+            document.getElementById('token').textContent = token;
+        }
+    </script>
+</body>
+</html>
