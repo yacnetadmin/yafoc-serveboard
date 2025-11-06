@@ -1,6 +1,7 @@
 // admin-create-project-and-slot.js
 // Lets you create a project, then add slots to it, or add slots to an existing project.
 const readline = require("readline");
+const fetch = require("node-fetch");
 
 async function prompt(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -40,6 +41,11 @@ async function apiCall(path, method = "GET", body = null) {
     console.log(`Response body: ${text}`);
     const data = text ? JSON.parse(text) : {};
     return { status: res.status, data };
+  } catch (error) {
+    console.error("API call failed:", error);
+    return { status: 500, data: { error: error.message } };
+  }
+}
 }
 
 function parseTimeInput(input) {
@@ -72,13 +78,10 @@ async function createProject() {
   const contactPhone = await prompt("Contact phone: ");
   const category = await prompt("Category (or leave blank for 'General'): ");
   const payload = { title, description, contactEmail, contactFirstName, contactLastName, contactPhone, category };
-  const res = await fetch("https://yafoc-serveboard.azurewebsites.net/api/projects", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const data = await res.json();
-  if (res.status === 201) {
+  
+  const { status, data } = await apiCall("/projects", "POST", payload);
+  
+  if (status === 201) {
     console.log("Project created! ID:", data.projectId);
     return { id: data.projectId, category: data.category };
   } else {
@@ -109,9 +112,13 @@ async function addSlot(projectId) {
 }
 
 async function listProjects() {
-  const res = await fetch("https://yafoc-serveboard.azurewebsites.net/api/projects");
-  const projects = await res.json();
-  return projects;
+  const { status, data } = await apiCall("/projects");
+  if (status === 200) {
+    return data;
+  } else {
+    console.log("Error listing projects:", data.error);
+    return [];
+  }
 }
 
 (async () => {
