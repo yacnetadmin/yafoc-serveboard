@@ -2,12 +2,22 @@
 // You must run `npm install @azure/msal-browser` and bundle, or use CDN in HTML
 const msalConfig = {
   auth: {
-    clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715", // Fill from config
-    authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a2a5-de2c1068b6db", // Using tenant-specific endpoint
+    clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715",
+    authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a2a5-de2c1068b6db/v2.0",
     redirectUri: window.location.origin + window.location.pathname,
+    navigateToLoginRequestUrl: true,
     cache: {
       cacheLocation: "sessionStorage",
       storeAuthStateInCookie: false
+    }
+  },
+  system: {
+    loggerOptions: {
+      logLevel: "Info",
+      loggerCallback: (level, message, containsPii) => {
+        if (containsPii) return;
+        console.log(`MSAL: ${level} - ${message}`);
+      }
     }
   }
 };
@@ -15,15 +25,39 @@ console.log("MSAL Config:", JSON.stringify(msalConfig, null, 2));
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 
 async function signIn() {
-  const loginRequest = { scopes: ["openid", "profile", "User.Read"] };
+  const loginRequest = {
+    scopes: ["openid", "profile", "User.Read"],
+    prompt: "select_account"
+  };
   try {
-    console.log("Starting sign-in process...");
+    console.log("Starting sign-in process with config:", JSON.stringify(msalConfig, null, 2));
+    console.log("Login request:", loginRequest);
     console.log("Redirect URI:", msalConfig.auth.redirectUri);
+    
+    // Try to check if we can access the authority
+    try {
+      const authorityTest = await fetch(msalConfig.auth.authority + "/.well-known/openid-configuration");
+      console.log("Authority endpoint test response:", authorityTest.status);
+      if (!authorityTest.ok) {
+        console.error("Authority endpoint not accessible");
+      }
+    } catch (e) {
+      console.error("Error testing authority endpoint:", e);
+    }
+    
     const loginResponse = await msalInstance.loginPopup(loginRequest);
     console.log("Sign-in successful:", loginResponse);
     return loginResponse.account;
   } catch (err) {
     console.error("Login failed:", err);
+    console.error("Error details:", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      errorCode: err.errorCode,
+      errorMessage: err.errorMessage,
+      subError: err.subError
+    });
     alert("Login failed: " + err.message + "\n\nPlease check the browser console for more details.");
     return null;
   }
