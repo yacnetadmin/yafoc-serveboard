@@ -19,7 +19,20 @@
     .project-controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
     #refreshProjects { background: #4b86b4; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
     #projectList { list-style: none; padding: 0; }
-    #projectList li { padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .project-card { background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .project-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; }
+    .project-title { margin: 0; color: #2a4d69; font-size: 1.2rem; }
+    .project-category { color: #666; font-size: 0.9rem; }
+    .project-description { color: #444; margin-bottom: 1rem; }
+    .project-contact { font-size: 0.9rem; color: #666; margin-bottom: 1rem; }
+    .slot-list { list-style: none; padding: 0; margin: 1rem 0; }
+    .slot-item { background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 0.5rem; margin-bottom: 0.5rem; }
+    .add-slot-btn { background: #2a4d69; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    .add-slot-btn:hover { background: #4b86b4; }
+    .slot-form { display: none; background: #fff; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 1rem; }
+    .slot-form.active { display: block; }
+    .slot-form input { width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
+    .slot-actions { display: flex; gap: 0.5rem; }
     #createProjectForm { display: grid; gap: 1rem; max-width: 600px; }
     #createProjectForm input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
     #createProjectForm button { background: #2a4d69; color: #fff; border: none; padding: 0.75rem; border-radius: 4px; cursor: pointer; }
@@ -79,25 +92,168 @@
     document.getElementById('refreshProjects').onclick = loadProjects;
     async function loadProjects() {
       const { status, data } = await window.api.apiCall('/api/projects');
-      const ul = document.getElementById('projectList');
-      ul.innerHTML = '';
+      const container = document.getElementById('projectList');
+      container.innerHTML = '';
       if (Array.isArray(data)) {
-        data.forEach(p => {
-          const li = document.createElement('li');
-          li.textContent = `${p.title} (${p.category}) - ${p.description}`;
-          ul.appendChild(li);
+        for (const project of data) {
+          const projectCard = document.createElement('div');
+          projectCard.className = 'project-card';
+          
+          // Project header with title and category
+          const header = document.createElement('div');
+          header.className = 'project-header';
+          header.innerHTML = `
+            <div>
+              <h3 class="project-title">${project.title}</h3>
+              <div class="project-category">${project.category || 'No category'}</div>
+            </div>
+          `;
+          projectCard.appendChild(header);
+
+          // Project description
+          const description = document.createElement('div');
+          description.className = 'project-description';
+          description.textContent = project.description;
+          projectCard.appendChild(description);
+
+          // Contact information
+          const contact = document.createElement('div');
+          contact.className = 'project-contact';
+          contact.innerHTML = `
+            Contact: ${project.contactFirstName || ''} ${project.contactLastName || ''}<br>
+            Email: ${project.contactEmail || 'N/A'}<br>
+            Phone: ${project.contactPhone || 'N/A'}
+          `;
+          projectCard.appendChild(contact);
+
+          // Slots section
+          const slotsSection = document.createElement('div');
+          slotsSection.innerHTML = '<h4>Slots</h4>';
+          const slotList = document.createElement('ul');
+          slotList.className = 'slot-list';
+
+          // Load slots for this project
+          try {
+            const { data: slots } = await window.api.apiCall(`/api/projects/${project.id}/slots`);
+            if (Array.isArray(slots)) {
+              slots.forEach(slot => {
+                const slotItem = document.createElement('li');
+                slotItem.className = 'slot-item';
+                slotItem.innerHTML = `
+                  <div><strong>${slot.title || 'Untitled Slot'}</strong></div>
+                  <div>${slot.description || 'No description'}</div>
+                  ${slot.volunteer ? `<div>Filled by: ${slot.volunteer}</div>` : '<div>Available</div>'}
+                `;
+                slotList.appendChild(slotItem);
+              });
+            }
+          } catch (err) {
+            console.error('Error loading slots:', err);
+          }
+
+          slotsSection.appendChild(slotList);
+
+          // Add slot button
+          const addSlotBtn = document.createElement('button');
+          addSlotBtn.className = 'add-slot-btn';
+          addSlotBtn.textContent = 'Add New Slot';
+          
+          // Slot creation form
+          const slotForm = document.createElement('div');
+          slotForm.className = 'slot-form';
+          slotForm.innerHTML = `
+            <input type="text" placeholder="Slot Title" id="slot-title-${project.id}" required>
+            <input type="text" placeholder="Description" id="slot-desc-${project.id}" required>
+            <div class="slot-actions">
+              <button type="button" class="add-slot-btn" onclick="createSlot('${project.id}')">Save Slot</button>
+              <button type="button" onclick="this.parentElement.parentElement.classList.remove('active')" style="background:#666">Cancel</button>
+            </div>
+          `;
+
+          addSlotBtn.onclick = () => {
+            slotForm.classList.add('active');
+          };
+
+          slotsSection.appendChild(addSlotBtn);
+          slotsSection.appendChild(slotForm);
+          projectCard.appendChild(slotsSection);
+
+          container.appendChild(projectCard);
+        }
+      }
+    }
+
+    async function createSlot(projectId) {
+      const title = document.getElementById(`slot-title-${projectId}`).value;
+      const description = document.getElementById(`slot-desc-${projectId}`).value;
+      
+      if (!title || !description) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      try {
+        const { status, data } = await window.api.apiCall(`/api/projects/${projectId}/slots`, 'POST', {
+          title,
+          description
         });
+
+        if (status === 201) {
+          loadProjects(); // Refresh the list
+        } else {
+          alert(data.error || 'Failed to create slot');
+        }
+      } catch (err) {
+        alert('Error creating slot: ' + err.message);
       }
     }
     document.getElementById('createProjectForm').onsubmit = async (e) => {
       e.preventDefault();
       const form = e.target;
-      const body = Object.fromEntries(new FormData(form));
-      const { status, data } = await window.api.apiCall('/api/projects', 'POST', body);
-      document.getElementById('projectMsg').innerText = data.message || data.error || '';
-      if (status === 201) {
-        form.reset();
-        loadProjects();
+      const msgElement = document.getElementById('projectMsg');
+      
+      // Get form data
+      const formData = new FormData(form);
+      const project = {
+        title: formData.get('title')?.trim(),
+        description: formData.get('description')?.trim(),
+        category: formData.get('category')?.trim(),
+        contactEmail: formData.get('contactEmail')?.trim(),
+        contactFirstName: formData.get('contactFirstName')?.trim(),
+        contactLastName: formData.get('contactLastName')?.trim(),
+        contactPhone: formData.get('contactPhone')?.trim()
+      };
+
+      // Validate required fields
+      if (!project.title || !project.description || !project.contactEmail) {
+        msgElement.innerText = 'Please fill in all required fields (Title, Description, and Contact Email)';
+        msgElement.style.color = '#dc3545';
+        return;
+      }
+
+      // Validate email format
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(project.contactEmail)) {
+        msgElement.innerText = 'Please enter a valid email address';
+        msgElement.style.color = '#dc3545';
+        return;
+      }
+
+      try {
+        const { status, data } = await window.api.apiCall('/api/projects', 'POST', project);
+        
+        if (status === 201) {
+          msgElement.innerText = 'Project created successfully!';
+          msgElement.style.color = '#28a745';
+          form.reset();
+          await loadProjects(); // Refresh the project list
+        } else {
+          msgElement.innerText = data.error || 'Failed to create project. Please try again.';
+          msgElement.style.color = '#dc3545';
+        }
+      } catch (err) {
+        msgElement.innerText = 'Error creating project: ' + (err.message || 'Unknown error');
+        msgElement.style.color = '#dc3545';
+        console.error('Project creation error:', err);
       }
     };
   </script>
