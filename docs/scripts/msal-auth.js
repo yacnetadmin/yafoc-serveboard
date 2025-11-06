@@ -3,10 +3,11 @@
 const msalConfig = {
   auth: {
     clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715", // Fill from config
-    authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a2a5-de2c1068b6db", // Fill from config
+    authority: "https://login.microsoftonline.com/common", // Using common endpoint for better compatibility
     redirectUri: window.location.origin + window.location.pathname
   }
 };
+console.log("MSAL Config:", JSON.stringify(msalConfig, null, 2));
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 
 async function signIn() {
