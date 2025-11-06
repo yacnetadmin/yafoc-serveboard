@@ -3,8 +3,8 @@
 const msalConfig = {
   auth: {
     clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715",
-    authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a2a5-de2c1068b6db/v2.0",
-    redirectUri: window.location.origin + window.location.pathname,
+    authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a2a5-de2c1068b6db",
+    redirectUri: "https://yacnetadmin.github.io/yafoc-serveboard/manage.html",
     navigateToLoginRequestUrl: true,
     cache: {
       cacheLocation: "sessionStorage",
@@ -75,7 +75,7 @@ async function getAccessToken() {
   }
 
   const tokenRequest = { 
-    scopes: ["api://1bad36bb-ea69-44f2-a2f5-0a23078b6715/.default"], 
+    scopes: ["openid", "profile", "api://1bad36bb-ea69-44f2-a2a5-0a23078b6715/.default"], 
     account 
   };
   
