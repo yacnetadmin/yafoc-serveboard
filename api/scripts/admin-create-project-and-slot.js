@@ -7,6 +7,41 @@ async function prompt(question) {
   return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans); }));
 }
 
+let accessToken = null;
+
+async function getAccessToken() {
+  if (!accessToken) {
+    console.log("\nTo get an access token:");
+    console.log("1. Go to https://yacnetadmin.github.io/yafoc-serveboard/get-token.html");
+    console.log("2. Click 'Get Token' and sign in if needed");
+    console.log("3. Copy the token shown on the page\n");
+    accessToken = await prompt("Paste the access token here: ");
+  }
+  return accessToken;
+}
+
+async function apiCall(path, method = "GET", body = null) {
+  try {
+    const token = await getAccessToken();
+    const url = `https://yafoc-serveboard.azurewebsites.net/api${path}`;
+    const headers = {
+      "Authorization": `Bearer ${token}`,
+      "Accept": "application/json"
+    };
+    if (body) headers["Content-Type"] = "application/json";
+    console.log(`Making ${method} request to ${url}`);
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const text = await res.text();
+    console.log(`Response status: ${res.status}`);
+    console.log(`Response body: ${text}`);
+    const data = text ? JSON.parse(text) : {};
+    return { status: res.status, data };
+}
+
 function parseTimeInput(input) {
   // Accepts '6:00 PM', '6 PM', '18:00', '18', etc. Returns 'HH:mm' 24-hour format.
   input = input.trim().toLowerCase();
@@ -29,7 +64,6 @@ function parseTimeInput(input) {
 }
 
 async function createProject() {
-  const fetch = global.fetch;
   const title = await prompt("Project title: ");
   const description = await prompt("Project description: ");
   const contactEmail = await prompt("Contact email: ");
@@ -38,7 +72,7 @@ async function createProject() {
   const contactPhone = await prompt("Contact phone: ");
   const category = await prompt("Category (or leave blank for 'General'): ");
   const payload = { title, description, contactEmail, contactFirstName, contactLastName, contactPhone, category };
-  const res = await fetch("http://localhost:7071/api/projects", {
+  const res = await fetch("https://yafoc-serveboard.azurewebsites.net/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -54,7 +88,6 @@ async function createProject() {
 }
 
 async function addSlot(projectId) {
-  const fetch = global.fetch;
   const task = await prompt("Slot task: ");
   const date = await prompt("Slot date (YYYY-MM-DD): ");
   let time;
@@ -64,26 +97,11 @@ async function addSlot(projectId) {
     if (time) break;
     console.log("Invalid time format. Please enter as '6:00 PM', '6 PM', '18:00', or '18'.");
   }
+  
   const payload = { task, date, time };
-  let res, data;
-  try {
-    res = await fetch(`http://localhost:7071/api/projects/${projectId}/slots`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text();
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.log("Server did not return valid JSON. Status:", res.status, "Body:", text);
-      return;
-    }
-  } catch (err) {
-    console.log("Network or fetch error:", err);
-    return;
-  }
-  if (res.status === 201) {
+  const { status, data } = await apiCall(`/projects/${projectId}/slots`, "POST", payload);
+  
+  if (status === 201) {
     console.log("Slot created! ID:", data.slotId);
   } else {
     console.log("Error:", data.error || data);
@@ -91,8 +109,7 @@ async function addSlot(projectId) {
 }
 
 async function listProjects() {
-  const fetch = global.fetch;
-  const res = await fetch("http://localhost:7071/api/projects");
+  const res = await fetch("https://yafoc-serveboard.azurewebsites.net/api/projects");
   const projects = await res.json();
   return projects;
 }

@@ -78,13 +78,27 @@ module.exports = async function (context, req) {
   };
 
   try {
+    context.log("Creating project with entity:", JSON.stringify(entity));
+    context.log("Using table:", "Projects");
+    context.log("Storage connection string present:", !!connectionString);
+    
     await tableClient.createEntity(entity);
+    
+    context.log("Project created successfully");
     context.res = {
       status: 201,
       body: { message: "Project created successfully!", projectId, category: partitionKey }
     };
   } catch (error) {
-    context.log("Error creating project:", error);
-    context.res = { status: 500, body: { error: "Failed to create project." } };
+    context.log("Error creating project. Full error:", error);
+    context.log("Error message:", error.message);
+    context.log("Error details:", error.details || "No details available");
+    context.res = { 
+      status: 500, 
+      body: { 
+        error: "Failed to create project.", 
+        details: error.message 
+      } 
+    };
   }
 };
