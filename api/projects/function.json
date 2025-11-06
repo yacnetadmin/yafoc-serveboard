@@ -5,7 +5,7 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": [ "get" ],
+      "methods": [ "get", "post", "options" ],
       "route": "projects"
     },
     {
@@ -13,5 +13,13 @@
       "direction": "out",
       "name": "res"
     }
-  ]
+  ],
+  "cors": {
+    "allowedOrigins": [
+      "https://yacnetadmin.github.io"
+    ],
+    "allowedMethods": "GET,POST,OPTIONS",
+    "allowedHeaders": "Content-Type,Authorization",
+    "allowCredentials": true
+  }
 }
