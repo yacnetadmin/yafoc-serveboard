@@ -24,7 +24,13 @@ module.exports = async function (context, req) {
     if (!connectionString) {
       throw new Error("No storage connection string found in AzureWebJobsStorage or TableStorageConnectionString");
     }
-    context.log("Using table storage connection string from", process.env["AzureWebJobsStorage"] ? "AzureWebJobsStorage" : "TableStorageConnectionString");
+    // Log which connection string we're using (without the actual key)
+    const source = process.env["AzureWebJobsStorage"] ? "AzureWebJobsStorage" : "TableStorageConnectionString";
+    context.log(`Using table storage connection string from ${source}`);
+    // Validate connection string format
+    if (!connectionString.includes("DefaultEndpointsProtocol=") || !connectionString.includes("AccountName=")) {
+      throw new Error("Storage connection string appears to be invalid");
+    }
     
     const tableName = "Projects";
     context.log("Creating table client for table:", tableName);
@@ -45,11 +51,18 @@ module.exports = async function (context, req) {
     
     // Validate table exists by attempting to query it
     try {
+      context.log("Attempting to validate table connection...");
       const testQuery = client.listEntities({ maxPerPage: 1 });
-      await testQuery.next();
-      context.log("Table connection validated successfully");
+      const result = await testQuery.next();
+      context.log("Table connection validated successfully", result.done ? "- table is empty" : "- table has data");
     } catch (err) {
-      context.log.error("Failed to validate table connection:", err);
+      context.log.error("Failed to validate table connection:", {
+        message: err.message,
+        code: err.code,
+        statusCode: err.statusCode,
+        details: err.details,
+        name: err.name
+      });
       throw new Error(`Table connection validation failed: ${err.message}`);
     }
 
@@ -105,6 +118,15 @@ module.exports = async function (context, req) {
         return;
       } catch (err) {
         context.log.error("Error creating project:", err);
+        const errorMessage = err.message || "Unknown error occurred";
+        const errorDetails = {
+            message: errorMessage,
+            code: err.code,
+            statusCode: err.statusCode,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        };
+        context.log.error("Error details:", errorDetails);
+        
         context.res = {
           status: 500,
           headers: {
@@ -116,9 +138,7 @@ module.exports = async function (context, req) {
           },
           body: {
             error: "Failed to create project",
-            details: err.message,
-            code: err.code,
-            statusCode: err.statusCode
+            details: errorDetails
           }
         };
         return;
