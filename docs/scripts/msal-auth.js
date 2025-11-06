@@ -27,7 +27,10 @@ const msalInstance = new msal.PublicClientApplication(msalConfig);
 async function signIn() {
   const loginRequest = {
     scopes: ["openid", "profile"],
-    prompt: "select_account"
+    prompt: "select_account",
+    extraQueryParameters: {
+      response_mode: "fragment"
+    }
   };
   try {
     console.log("Starting sign-in process with config:", JSON.stringify(msalConfig, null, 2));
@@ -62,8 +65,12 @@ async function getAccessToken() {
   }
 
   const tokenRequest = { 
-    scopes: ["openid", "profile", "api://1bad36bb-ea69-44f2-a2f5-0a23078b6715/.default"], 
-    account 
+    scopes: ["openid", "profile", "api://1bad36bb-ea69-44f2-a2f5-0a23078b6715/.default"],
+    account,
+    authenticationScheme: "bearer",
+    extraQueryParameters: {
+      response_mode: "fragment"
+    }
   };
   
   try {
