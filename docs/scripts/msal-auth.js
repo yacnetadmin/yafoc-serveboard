@@ -62,7 +62,7 @@ async function getAccessToken() {
   }
 
   const tokenRequest = { 
-    scopes: ["openid", "profile", "api://1bad36bb-ea69-44f2-a2a5-0a23078b6715/.default"], 
+    scopes: ["openid", "profile", "api://1bad36bb-ea69-44f2-a2f5-0a23078b6715/.default"], 
     account 
   };
   
