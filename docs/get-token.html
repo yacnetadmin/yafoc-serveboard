@@ -6,15 +6,61 @@
     <title>Get Access Token</title>
     <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.js"></script>
     <script src="scripts/msal-auth.js"></script>
+    <style>
+        body { font-family: system, -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+        #token { background: #f5f5f5; padding: 1rem; border-radius: 4px; margin-top: 1rem; }
+        .hidden { display: none; }
+        #status { margin: 1rem 0; }
+    </style>
 </head>
 <body>
-    <h2>Get Access Token</h2>
-    <button onclick="getAndShowToken()">Get Token</button>
-    <pre id="token" style="word-wrap: break-word; white-space: pre-wrap;"></pre>
+    <h2>Get Access Token for Admin Tools</h2>
+    <div id="status"></div>
+    <button id="signInBtn" onclick="handleSignIn()">Sign In with Microsoft</button>
+    <button id="getTokenBtn" onclick="getAndShowToken()" class="hidden">Get Token</button>
+    <div id="tokenSection" class="hidden">
+        <h3>Your Access Token:</h3>
+        <pre id="token" style="word-wrap: break-word; white-space: pre-wrap;"></pre>
+    </div>
     <script>
+        const status = document.getElementById('status');
+        const signInBtn = document.getElementById('signInBtn');
+        const getTokenBtn = document.getElementById('getTokenBtn');
+        const tokenSection = document.getElementById('tokenSection');
+
+        async function handleSignIn() {
+            status.textContent = 'Signing in...';
+            const account = await window.msalAuth.signIn();
+            if (account) {
+                status.textContent = `Signed in as: ${account.username}`;
+                signInBtn.classList.add('hidden');
+                getTokenBtn.classList.remove('hidden');
+            } else {
+                status.textContent = 'Sign in failed. Please try again.';
+            }
+        }
+
         async function getAndShowToken() {
+            status.textContent = 'Getting token...';
             const token = await window.msalAuth.getAccessToken();
-            document.getElementById('token').textContent = token;
+            if (token) {
+                document.getElementById('token').textContent = token;
+                tokenSection.classList.remove('hidden');
+                status.textContent = 'Token acquired successfully. Copy it and use in the admin script.';
+            } else {
+                status.textContent = 'Failed to get token. Please try signing in again.';
+                signInBtn.classList.remove('hidden');
+                getTokenBtn.classList.add('hidden');
+            }
+        }
+
+        // Check if already signed in
+        const account = msalInstance.getAllAccounts()[0];
+        if (account) {
+            status.textContent = `Signed in as: ${account.username}`;
+            signInBtn.classList.add('hidden');
+            getTokenBtn.classList.remove('hidden');
         }
     </script>
 </body>
