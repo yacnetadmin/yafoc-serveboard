@@ -42,7 +42,11 @@ module.exports = async function (context, req) {
     context.res = {
         status: 200,
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true"
         },
         body: projects
     };
@@ -50,9 +54,17 @@ module.exports = async function (context, req) {
     context.log.error("UNCAUGHT ERROR in projects function:", err);
     context.res = { 
       status: 500, 
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true"
+      },
       body: { 
         error: "Internal server error", 
-        details: err.message 
+        details: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       } 
     };
   }
