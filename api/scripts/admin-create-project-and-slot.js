@@ -1,24 +1,75 @@
 // admin-create-project-and-slot.js
-// Lets you create a project, then add slots to it, or add slots to an existing project.
+// CLI helper to create projects and slots with Microsoft login via device code flow.
 const readline = require("readline");
 const fetch = require("node-fetch");
+const { PublicClientApplication } = require("@azure/msal-node");
 
 async function prompt(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans); }));
 }
 
-let accessToken = null;
+function readConfigValue(key) {
+  const loaders = [
+    () => require("../../docs/config/microsoft.json")[key],
+    () => require("../../frontend/config/microsoft.json")[key]
+  ];
+  for (const load of loaders) {
+    try {
+      const value = load();
+      if (value) return value;
+    } catch (err) {
+      if (err.code !== "MODULE_NOT_FOUND") {
+        console.warn(`Failed to load ${key} from config file:`, err.message);
+      }
+    }
+  }
+  return null;
+}
+
+const tenantId = process.env.MICROSOFT_TENANT_ID || readConfigValue("tenantId");
+const clientId = process.env.MICROSOFT_CLIENT_ID || readConfigValue("clientId");
+
+if (!tenantId || !clientId) {
+  throw new Error("Missing Microsoft identity configuration. Set MICROSOFT_TENANT_ID and MICROSOFT_CLIENT_ID.");
+}
+
+const scope = process.env.MICROSOFT_SCOPE || `api://${clientId}/user_impersonation`;
+const authority = `https://login.microsoftonline.com/${tenantId}`;
+
+const pca = new PublicClientApplication({
+  auth: {
+    clientId,
+    authority
+  }
+});
+
+let cachedAccessToken = null;
+let cachedExpiresOn = 0;
 
 async function getAccessToken() {
-  if (!accessToken) {
-    console.log("\nTo get an access token:");
-    console.log("1. Go to https://yacnetadmin.github.io/yafoc-serveboard/get-token.html");
-    console.log("2. Click 'Get Token' and sign in if needed");
-    console.log("3. Copy the token shown on the page\n");
-    accessToken = await prompt("Paste the access token here: ");
+  const now = Date.now();
+  if (cachedAccessToken && cachedExpiresOn - 60000 > now) {
+    return cachedAccessToken;
   }
-  return accessToken;
+
+  console.log("\nSign in with your Microsoft account to call the admin API.");
+  console.log("Follow the device code instructions below.\n");
+
+  try {
+    const tokenResponse = await pca.acquireTokenByDeviceCode({
+      scopes: [scope],
+      deviceCodeCallback: info => {
+        console.log(info.message);
+      }
+    });
+    cachedAccessToken = tokenResponse.accessToken;
+    cachedExpiresOn = tokenResponse.expiresOn ? tokenResponse.expiresOn.getTime() : 0;
+    return cachedAccessToken;
+  } catch (error) {
+    console.error("Failed to acquire token via device code flow:", error);
+    throw new Error("Microsoft sign-in failed. Please try again.");
+  }
 }
 
 async function apiCall(path, method = "GET", body = null) {
