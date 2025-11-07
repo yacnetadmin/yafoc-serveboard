@@ -42,9 +42,15 @@ module.exports = async function (context, req) {
       await client.createTable();
       context.log("Table creation successful or table already exists");
     } catch (err) {
-      context.log.error("Error creating table:", err);
+      context.log.error("Error creating table:", {
+        message: err.message,
+        code: err.code,
+        statusCode: err.statusCode,
+        details: err.details,
+        name: err.name
+      });
       if (err.statusCode !== 409) { // 409 means table already exists, which is fine
-        throw new Error(`Failed to ensure table exists: ${err.message}`);
+        throw err; // Keep original error for better debugging
       }
       context.log("Table already exists, continuing...");
     }
@@ -63,7 +69,7 @@ module.exports = async function (context, req) {
         details: err.details,
         name: err.name
       });
-      throw new Error(`Table connection validation failed: ${err.message}`);
+      throw err; // Keep original error for better debugging
     }
 
     let projects = [];

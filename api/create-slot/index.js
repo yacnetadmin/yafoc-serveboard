@@ -6,8 +6,11 @@ const jwksClient = require("jwks-rsa");
 async function validateMicrosoftToken(authHeader) {
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.substring(7);
-  const tenantId = process.env.MICROSOFT_TENANT_ID || require("../../frontend/config/microsoft.json").tenantId;
-  const clientId = process.env.MICROSOFT_CLIENT_ID || require("../../frontend/config/microsoft.json").clientId;
+  const tenantId = process.env.MICROSOFT_TENANT_ID;
+  const clientId = process.env.MICROSOFT_CLIENT_ID;
+  if (!tenantId || !clientId) {
+    throw new Error("Missing Microsoft identity configuration. Ensure MICROSOFT_TENANT_ID and MICROSOFT_CLIENT_ID are set.");
+  }
   const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
   const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
   const client = jwksClient({ jwksUri });
@@ -36,7 +39,17 @@ async function validateMicrosoftToken(authHeader) {
 
 module.exports = async function (context, req) {
   // Require Microsoft auth for slot creation
-  const user = await validateMicrosoftToken(req.headers["authorization"]);
+  let user;
+  try {
+    user = await validateMicrosoftToken(req.headers["authorization"]);
+  } catch (configError) {
+    context.log.error("Configuration error while validating Microsoft token:", configError);
+    context.res = {
+      status: 500,
+      body: { error: "Server configuration error. Please contact an administrator." }
+    };
+    return;
+  }
   if (!user) {
     context.res = { status: 401, body: { error: "Unauthorized. Please sign in with Microsoft." } };
     return;
