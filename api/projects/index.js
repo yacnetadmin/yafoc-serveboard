@@ -1,5 +1,41 @@
 // api/projects/index.js
 const { TableClient } = require("@azure/data-tables");
+const jwt = require("jsonwebtoken");
+const jwksClient = require("jwks-rsa");
+
+async function validateMicrosoftToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.substring(7);
+  const tenantId = process.env.MICROSOFT_TENANT_ID;
+  const clientId = process.env.MICROSOFT_CLIENT_ID;
+  if (!tenantId || !clientId) {
+    throw new Error("Missing Microsoft identity configuration. Ensure MICROSOFT_TENANT_ID and MICROSOFT_CLIENT_ID are set.");
+  }
+  const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
+  const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
+  const client = jwksClient({ jwksUri });
+  function getKey(header, callback) {
+    client.getSigningKey(header.kid, function(err, key) {
+      if (err) return callback(err);
+      const signingKey = key.getPublicKey();
+      callback(null, signingKey);
+    });
+  }
+  try {
+    return await new Promise(resolve => {
+      jwt.verify(token, getKey, {
+        audience: clientId,
+        issuer,
+        algorithms: ["RS256"]
+      }, (err, decoded) => {
+        if (err) return resolve(null);
+        resolve(decoded);
+      });
+    });
+  } catch (e) {
+    return null;
+  }
+}
 
 module.exports = async function (context, req) {
   try {
@@ -74,6 +110,39 @@ module.exports = async function (context, req) {
 
     let projects = [];
     if (req.method === "POST") {
+      let user;
+      try {
+        user = await validateMicrosoftToken(req.headers["authorization"]);
+      } catch (configError) {
+        context.log.error("Configuration error while validating Microsoft token:", configError);
+        context.res = {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true"
+          },
+          body: { error: "Server configuration error. Please contact an administrator." }
+        };
+        return;
+      }
+      if (!user) {
+        context.res = {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true"
+          },
+          body: { error: "Unauthorized. Please sign in with Microsoft." }
+        };
+        return;
+      }
+
       // Handle project creation
       const project = req.body;
       if (!project || !project.title || !project.description || !project.contactEmail) {

@@ -1,4 +1,5 @@
 {
+  "disabled": true,
   "scriptFile": "index.js",
   "bindings": [
     {
