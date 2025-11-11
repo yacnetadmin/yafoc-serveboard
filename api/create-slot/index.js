@@ -6,6 +6,8 @@ const jwksClient = require("jwks-rsa");
 async function validateMicrosoftToken(authHeader) {
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.substring(7);
+  const decoded = jwt.decode(token, { complete: true }) || {};
+  const tokenHeader = decoded.header || {};
   const tenantId = process.env.MICROSOFT_TENANT_ID;
   const clientId = process.env.MICROSOFT_CLIENT_ID;
   if (!tenantId || !clientId) {
@@ -14,28 +16,43 @@ async function validateMicrosoftToken(authHeader) {
   const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
   const audiences = [clientId, `api://${clientId}`];
   const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
-  const client = jwksClient({ jwksUri });
+  const client = jwksClient({ jwksUri, cache: true, rateLimit: true, jwksRequestsPerMinute: 5 });
+
   function getKey(header, callback) {
-    client.getSigningKey(header.kid, function(err, key) {
+    const keyId = header.kid || header.x5t;
+    if (!keyId) {
+      return callback(new Error("Missing key identifier in token header"));
+    }
+    client.getSigningKey(keyId, (err, key) => {
       if (err) return callback(err);
-      const signingKey = key.getPublicKey();
-      callback(null, signingKey);
+      callback(null, key.getPublicKey());
     });
   }
-  try {
-    return await new Promise((resolve, reject) => {
-      jwt.verify(token, getKey, {
-        audience: audiences,
-        issuer,
-        algorithms: ["RS256"]
-      }, (err, decoded) => {
-        if (err) return resolve(null);
-        resolve(decoded);
+
+  return new Promise(resolve => {
+    jwt.verify(token, getKey, {
+      audience: audiences,
+      issuer,
+      algorithms: ["RS256"]
+    }, (err, decodedToken) => {
+      if (err) {
+        console.warn("Microsoft token validation failed (create-slot)", {
+          message: err.message,
+          code: err.code,
+          name: err.name,
+          kid: tokenHeader.kid,
+          x5t: tokenHeader.x5t
+        });
+        return resolve(null);
+      }
+      console.log("Microsoft token validated (create-slot)", {
+        audience: decodedToken.aud,
+        issuer: decodedToken.iss,
+        subject: decodedToken.sub
       });
+      resolve(decodedToken);
     });
-  } catch (e) {
-    return null;
-  }
+  });
 }
 
 module.exports = async function (context, req) {
