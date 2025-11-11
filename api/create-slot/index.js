@@ -12,6 +12,7 @@ async function validateMicrosoftToken(authHeader) {
     throw new Error("Missing Microsoft identity configuration. Ensure MICROSOFT_TENANT_ID and MICROSOFT_CLIENT_ID are set.");
   }
   const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
+  const audiences = [clientId, `api://${clientId}`];
   const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
   const client = jwksClient({ jwksUri });
   function getKey(header, callback) {
@@ -24,7 +25,7 @@ async function validateMicrosoftToken(authHeader) {
   try {
     return await new Promise((resolve, reject) => {
       jwt.verify(token, getKey, {
-        audience: clientId,
+        audience: audiences,
         issuer,
         algorithms: ["RS256"]
       }, (err, decoded) => {

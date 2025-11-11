@@ -13,6 +13,7 @@ async function validateMicrosoftToken(authHeader) {
   }
   const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
   const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
+  const audiences = [clientId, `api://${clientId}`];
   const client = jwksClient({ jwksUri });
   function getKey(header, callback) {
     client.getSigningKey(header.kid, function(err, key) {
@@ -24,7 +25,7 @@ async function validateMicrosoftToken(authHeader) {
   try {
     return await new Promise(resolve => {
       jwt.verify(token, getKey, {
-        audience: clientId,
+        audience: audiences,
         issuer,
         algorithms: ["RS256"]
       }, (err, decoded) => {
