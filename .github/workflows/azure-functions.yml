@@ -1,0 +1,88 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy Node.js project to Azure Function App - yafoc-serveboard
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './api'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }} environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install and build
+        shell: pwsh
+        run: |
+          pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          npm install
+          npm run build --if-present
+          npm run test --if-present
+          popd
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: function-app
+          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+
+  deploy:
+    runs-on: windows-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: function-app
+          path: ./deploy_package
+
+      - name: Inspect package contents
+        shell: pwsh
+        run: Get-ChildItem -Recurse ./deploy_package | Select-Object FullName
+
+      - name: Flatten artifact for zip deploy
+        shell: pwsh
+        run: |
+          Get-ChildItem ./deploy_package | ForEach-Object {
+            $destination = Join-Path -Path $PWD -ChildPath $_.Name
+            if (Test-Path $destination) {
+              Remove-Item $destination -Recurse -Force
+            }
+            Move-Item $_.FullName $destination
+          }
+          Remove-Item ./deploy_package -Recurse -Force
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_81D8598A90FE4C02AAA9C12D4F952CAE }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_3ABC35DF3C79413196BF341725E484A4 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_645C465B4BED43AA92B6463EF2C5749D }}
+
+      - name: Run Azure Functions Action
+        uses: Azure/functions-action@v1
+        with:
+          app-name: 'yafoc-serveboard'
+          slot-name: 'Production'
+          package: .
