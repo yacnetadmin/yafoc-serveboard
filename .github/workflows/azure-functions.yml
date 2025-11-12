@@ -28,11 +28,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install and build
+      - name: Install production dependencies and build
         shell: pwsh
         run: |
           pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          npm install
+          if (Test-Path 'package-lock.json') {
+            npm ci --omit=dev
+          } else {
+            npm install --omit=dev
+          }
+          npm prune --omit=dev
+          if (Test-Path 'node_modules/azure-functions-core-tools') {
+            Remove-Item 'node_modules/azure-functions-core-tools' -Recurse -Force
+          }
           npm run build --if-present
           npm run test --if-present
           popd
