@@ -41,7 +41,7 @@ async function apiCall(path, method = "GET", body = null) {
     console.log(`Response body: ${text}`);
     const data = text ? JSON.parse(text) : {};
     return { status: res.status, data };
-  catch (error) {
+  } catch (error) {
     console.error("API call failed:", error);
     return { status: 500, data: { error: error.message } };
   }
