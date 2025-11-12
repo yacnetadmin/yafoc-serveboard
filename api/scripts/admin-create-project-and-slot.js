@@ -2,23 +2,68 @@
 // Lets you create a project, then add slots to it, or add slots to an existing project.
 const readline = require("readline");
 const fetch = require("node-fetch");
+const fs = require("fs");
+const path = require("path");
+const { PublicClientApplication } = require("@azure/msal-node");
 
 async function prompt(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans); }));
 }
 
-let accessToken = null;
+const tenantId = process.env.MICROSOFT_TENANT_ID;
+const clientId = process.env.MICROSOFT_CLIENT_ID;
+
+if (!tenantId || !clientId) {
+  console.error("Missing MICROSOFT_TENANT_ID or MICROSOFT_CLIENT_ID environment variables. Set them before running this script.");
+  process.exit(1);
+}
+
+const authority = `https://login.microsoftonline.com/${tenantId}`;
+const scopes = [process.env.MICROSOFT_SCOPE || `api://${clientId}/.default`];
+const cachePath = path.join(__dirname, ".msal-cache.json");
+
+const cachePlugin = {
+  beforeCacheAccess: async cacheContext => {
+    if (fs.existsSync(cachePath)) {
+      const data = await fs.promises.readFile(cachePath, "utf8");
+      cacheContext.tokenCache.deserialize(data);
+    }
+  },
+  afterCacheAccess: async cacheContext => {
+    if (cacheContext.cacheHasChanged) {
+      await fs.promises.writeFile(cachePath, cacheContext.tokenCache.serialize(), "utf8");
+    }
+  }
+};
+
+const msalApp = new PublicClientApplication({
+  auth: { clientId, authority },
+  cache: { cachePlugin }
+});
 
 async function getAccessToken() {
-  if (!accessToken) {
-    console.log("\nTo get an access token:");
-    console.log("1. Go to https://yacnetadmin.github.io/yafoc-serveboard/get-token.html");
-    console.log("2. Click 'Get Token' and sign in if needed");
-    console.log("3. Copy the token shown on the page\n");
-    accessToken = await prompt("Paste the access token here: ");
+  const accounts = await msalApp.getTokenCache().getAllAccounts();
+  if (accounts.length > 0) {
+    try {
+      const silentResponse = await msalApp.acquireTokenSilent({ scopes, account: accounts[0] });
+      return silentResponse.accessToken;
+    } catch (silentError) {
+      console.log("Cached token expired, requesting a new one...");
+    }
   }
-  return accessToken;
+
+  console.log("\nSign in with your Microsoft account to call the admin API. Follow the device code instructions below.\n");
+  const response = await msalApp.acquireTokenByDeviceCode({
+    scopes,
+    deviceCodeCallback: info => {
+      console.log(`To sign in, open ${info.verificationUri} and enter the code ${info.userCode}`);
+      if (info.message) {
+        console.log(info.message);
+      }
+    }
+  });
+  return response.accessToken;
 }
 
 async function apiCall(path, method = "GET", body = null) {
