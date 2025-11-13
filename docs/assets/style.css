@@ -10,6 +10,33 @@
 /* ========================================================================== */
 
 /* ==========================================================================
+   0) SELF-HOSTED FONTS
+   ========================================================================= */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
    1) BASE TOKENS (LIGHT THEME DEFAULTS)
    - Evolved palette: crisp neutrals, balanced blues
    - Scales: spacing, radius, shadow, motion
@@ -123,6 +150,7 @@ h1, h2, h3, h4 {
   margin: 0;
   line-height: 1.25;
   color: var(--color-primary);
+  font-family: var(--font-sans);
 }
 h1 { font-size: clamp(2rem, 5vw, 2.75rem); }
 h2 { font-size: clamp(1.35rem, 4vw, 1.9rem); color: var(--color-accent); margin-top: var(--spacing-lg); }
