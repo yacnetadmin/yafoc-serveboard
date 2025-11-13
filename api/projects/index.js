@@ -260,46 +260,87 @@ module.exports = async function (context, req) {
       }
     }
 
-    // Handle GET request
-    try {
-        // Query all entities in the Projects table
-        const entities = client.listEntities();
-        for await (const entity of entities) {
-            // Each entity is a project; tasks can be stored as JSON string or in a separate table
-            let project = {
-                id: entity.rowKey || entity.RowKey, // Project ID
-                category: entity.partitionKey || entity.PartitionKey, // Project group/category
-                title: entity.Title,
-                description: entity.Description,
-                contact: {
-                    email: entity.ContactEmail,
-                    firstName: entity.ContactFirstName,
-                    lastName: entity.ContactLastName,
-                    phone: entity.ContactPhone
-                }
-            };
-            projects.push(project);
+  // Handle GET request
+  try {
+    // Query all entities in the Projects table
+    const entities = client.listEntities();
+    for await (const entity of entities) {
+      const project = {
+        id: entity.rowKey || entity.RowKey,
+        category: entity.partitionKey || entity.PartitionKey,
+        title: entity.Title,
+        description: entity.Description,
+        contact: {
+          email: entity.ContactEmail,
+          firstName: entity.ContactFirstName,
+          lastName: entity.ContactLastName,
+          phone: entity.ContactPhone
         }
-    } catch (err) {
-        context.log.error("Error querying Table Storage:", err);
-        context.res = {
-            status: 500,
-            headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                "Access-Control-Allow-Credentials": "true"
-            },
-            body: { 
-                error: "Failed to load projects",
-                details: err.message,
-                code: err.code,
-                statusCode: err.statusCode
-            }
-        };
-        return;
+      };
+      projects.push(project);
     }
+  } catch (err) {
+    context.log.error("Error querying Table Storage:", err);
+    context.res = {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true"
+      },
+      body: { 
+        error: "Failed to load projects",
+        details: err.message,
+        code: err.code,
+        statusCode: err.statusCode
+      }
+    };
+    return;
+  }
+
+  const totalsByProject = new Map();
+  try {
+    const slotsClient = TableClient.fromConnectionString(connectionString, "Slots");
+    const slotEntities = slotsClient.listEntities();
+    for await (const slot of slotEntities) {
+      const projectKey = slot.partitionKey || slot.PartitionKey;
+      if (!projectKey) continue;
+      const rawCapacity = parseInt(slot.Capacity ?? slot.capacity ?? 1, 10);
+      const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
+      const rawFilled = parseInt(slot.FilledCount ?? slot.filledCount ?? (slot.VolunteerEmail ? 1 : 0), 10);
+      const filled = Math.max(0, Number.isFinite(rawFilled) ? rawFilled : 0);
+      const current = totalsByProject.get(projectKey) || { slots: 0, capacity: 0, filled: 0 };
+      current.slots += 1;
+      current.capacity += capacity;
+      current.filled += Math.min(filled, capacity);
+      totalsByProject.set(projectKey, current);
+    }
+  } catch (slotErr) {
+    if (slotErr.statusCode === 404) {
+      context.log("Slots table not found while aggregating project totals. Continuing with zero counts.");
+    } else {
+      context.log.warn("Unable to aggregate slot totals for projects", {
+        message: slotErr.message,
+        code: slotErr.code,
+        statusCode: slotErr.statusCode
+      });
+    }
+  }
+
+  projects = projects.map((project) => {
+    const totals = totalsByProject.get(project.id) || { slots: 0, capacity: 0, filled: 0 };
+    const spotsRemaining = Math.max(0, totals.capacity - totals.filled);
+    return {
+      ...project,
+      totalSlots: totals.slots,
+      totalVolunteersNeeded: totals.capacity,
+      totalVolunteersFilled: totals.filled,
+      totalSpotsRemaining: spotsRemaining,
+      hasOpenSlots: spotsRemaining > 0
+    };
+  });
 
     context.res = {
         status: 200,

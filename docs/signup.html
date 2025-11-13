@@ -12,43 +12,52 @@
   <script src="scripts/signup.js" defer></script>
 </head>
 <body>
-  <main class="page page--narrow">
-    <section class="card">
+  <main class="page">
+    <section class="card stack">
       <h1 class="center-text">Volunteer Signup</h1>
-      <p class="muted center-text">Choose a project slot and let us know how to reach you.</p>
-      <form id="signupForm" class="form-grid">
-        <label class="form-field">
-          <span class="form-label">Project</span>
-          <select id="projectSelect" name="project" required disabled>
-            <option value="" disabled selected>Loading projects...</option>
-          </select>
-        </label>
-        <label class="form-field">
-          <span class="form-label">Slot</span>
-          <select id="slotSelect" name="slot" required disabled>
-            <option value="" disabled selected>Select a project first</option>
-          </select>
-        </label>
-        <label class="form-field">
-          <span class="form-label">First Name</span>
-          <input id="firstName" name="firstName" required placeholder="First Name" autocomplete="given-name" />
-        </label>
-        <label class="form-field">
-          <span class="form-label">Last Name</span>
-          <input id="lastName" name="lastName" required placeholder="Last Name" autocomplete="family-name" />
-        </label>
-        <label class="form-field">
-          <span class="form-label">Email</span>
-          <input id="email" name="email" type="email" required placeholder="you@example.com" autocomplete="email" />
-        </label>
-        <label class="form-field">
-          <span class="form-label">Phone (optional)</span>
-          <input id="phone" name="phone" type="tel" placeholder="Preferred phone" autocomplete="tel" />
-        </label>
-        <button id="submitBtn" type="submit" class="btn btn-primary btn-block" disabled>Sign Up</button>
-      </form>
-      <div id="slotNotice" class="muted"></div>
-      <div id="signupMsg" class="status-message"></div>
+      <p class="muted center-text">Review the open opportunities, then reserve your spot.</p>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th>Opportunity</th>
+              <th>Schedule</th>
+              <th>Spots</th>
+              <th class="nowrap">Action</th>
+            </tr>
+          </thead>
+          <tbody id="slotsTableBody">
+            <tr class="table-message"><td colspan="5">Loading open slots...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="slotsMsg" class="status-message"></div>
+
+      <section class="stack">
+        <h2 class="center-text">Sign Up</h2>
+        <p id="selectedSlotSummary" class="muted center-text">Select an open slot above to continue.</p>
+        <form id="signupForm" class="form-grid" novalidate>
+          <label class="form-field">
+            <span class="form-label">First Name</span>
+            <input id="firstName" name="firstName" required placeholder="First Name" autocomplete="given-name" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Last Name</span>
+            <input id="lastName" name="lastName" required placeholder="Last Name" autocomplete="family-name" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Email</span>
+            <input id="email" name="email" type="email" required placeholder="you@example.com" autocomplete="email" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Phone (optional)</span>
+            <input id="phone" name="phone" type="tel" placeholder="Preferred phone" autocomplete="tel" />
+          </label>
+          <button id="submitBtn" type="submit" class="btn btn-primary btn-block" disabled>Sign Up</button>
+        </form>
+        <div id="signupMsg" class="status-message"></div>
+      </section>
     </section>
   </main>
 </body>

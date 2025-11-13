@@ -4,12 +4,16 @@
   const configuredApiBase = window.serveboard?.apiBaseUrl;
   const apiBaseUrl = (configuredApiBase || (window.location.hostname === 'localhost' ? DEFAULT_LOCAL_API : DEFAULT_REMOTE_API)).replace(/\/$/, '');
 
-  const projectSelect = document.getElementById('projectSelect');
-  const slotSelect = document.getElementById('slotSelect');
+  const slotsTableBody = document.getElementById('slotsTableBody');
+  const slotsMsg = document.getElementById('slotsMsg');
+  const selectedSlotSummary = document.getElementById('selectedSlotSummary');
   const signupForm = document.getElementById('signupForm');
   const signupMsg = document.getElementById('signupMsg');
-  const slotNotice = document.getElementById('slotNotice');
   const submitBtn = document.getElementById('submitBtn');
+
+  let openSlots = [];
+  let selectedSlotId = null;
+  let activeSlotRow = null;
 
   const setSignupMessage = (message, type) => {
     signupMsg.textContent = message || '';
@@ -22,23 +26,47 @@
     }
   };
 
-  const setSlotNotice = (message) => {
-    slotNotice.textContent = message || '';
+  const setSlotsMessage = (message, type) => {
+    slotsMsg.textContent = message || '';
+    slotsMsg.classList.remove('status-message--error', 'status-message--success');
+    if (!message) return;
+    if (type === 'error') {
+      slotsMsg.classList.add('status-message--error');
+    } else if (type === 'success') {
+      slotsMsg.classList.add('status-message--success');
+    }
   };
 
-  const createOption = (value, label, { disabled = false, selected = false } = {}) => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    option.disabled = disabled;
-    option.selected = selected;
-    return option;
+  const clearSelectedSlot = (message) => {
+    selectedSlotId = null;
+    if (activeSlotRow) {
+      activeSlotRow.classList.remove('table-row--active');
+      activeSlotRow = null;
+    }
+    selectedSlotSummary.textContent = message || 'Select an open slot above to continue.';
+    if (message) {
+      selectedSlotSummary.classList.remove('muted');
+    } else {
+      selectedSlotSummary.classList.add('muted');
+    }
+    submitBtn.disabled = true;
   };
 
-  const resetSlotSelect = (placeholder, disable = true) => {
-    slotSelect.innerHTML = '';
-    slotSelect.appendChild(createOption('', placeholder, { disabled: true, selected: true }));
-    slotSelect.disabled = disable;
+  const applySelectedRowState = () => {
+    if (activeSlotRow) {
+      activeSlotRow.classList.remove('table-row--active');
+      const priorButton = activeSlotRow.querySelector('button');
+      if (priorButton) priorButton.textContent = 'Sign Up';
+    }
+    activeSlotRow = null;
+    if (!selectedSlotId) return;
+    const currentRow = slotsTableBody.querySelector(`[data-slot-id="${selectedSlotId}"]`);
+    if (currentRow) {
+      currentRow.classList.add('table-row--active');
+      const actionButton = currentRow.querySelector('button');
+      if (actionButton) actionButton.textContent = 'Selected';
+      activeSlotRow = currentRow;
+    }
   };
 
   const fetchJson = async (url, options = {}) => {
@@ -61,110 +89,198 @@
     return data;
   };
 
-  const populateProjectSelect = (projects) => {
-    projectSelect.innerHTML = '';
-    if (!projects.length) {
-      projectSelect.appendChild(createOption('', 'No projects available right now', { disabled: true, selected: true }));
-      projectSelect.disabled = true;
-      submitBtn.disabled = true;
+  const showTableMessage = (message) => {
+    slotsTableBody.innerHTML = '';
+    const row = document.createElement('tr');
+    row.className = 'table-message';
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = message;
+    row.appendChild(cell);
+    slotsTableBody.appendChild(row);
+  };
+
+  const toDisplayTime = (time) => {
+    if (!time) return 'Time TBD';
+    const [hourStr, minuteStr = '00'] = time.split(':');
+    const hour = parseInt(hourStr, 10);
+    if (!Number.isFinite(hour)) return time;
+    const minutes = minuteStr.padStart(2, '0');
+    const isPm = hour >= 12;
+    const displayHour = ((hour + 11) % 12) + 1;
+    return `${displayHour}:${minutes} ${isPm ? 'PM' : 'AM'}`;
+  };
+
+  const normalizeSlotMetrics = (slot) => {
+    const rawCapacity = parseInt(slot.capacity, 10);
+    const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
+    const rawFilled = parseInt(slot.filledCount, 10);
+    const fallbackFilled = slot.volunteer ? 1 : 0;
+    const filledCount = Math.max(0, Number.isFinite(rawFilled) ? rawFilled : fallbackFilled);
+    const spotsRemaining = Math.max(0, capacity - filledCount);
+    return { capacity, filledCount, spotsRemaining };
+  };
+
+  const renderSlotsTable = (slots) => {
+    slotsTableBody.innerHTML = '';
+
+    if (!Array.isArray(slots) || slots.length === 0) {
+      showTableMessage('No volunteer openings are available right now.');
       return;
     }
 
-    projectSelect.appendChild(createOption('', 'Select a project', { disabled: true, selected: true }));
-    projects.forEach((project) => {
-      const label = project.category ? `${project.title} (${project.category})` : project.title;
-      projectSelect.appendChild(createOption(project.id, label));
+    slots.forEach((slot) => {
+      const row = document.createElement('tr');
+      row.dataset.slotId = slot.id;
+      const volunteerText = `${slot.filledCount}/${slot.capacity} filled`;
+      const spotsText = `${slot.spotsRemaining} open`;
+
+      row.innerHTML = `
+        <td>
+          <div>${slot.projectTitle}</div>
+          <div class="muted">${slot.projectCategory || 'General'}</div>
+        </td>
+        <td>${slot.task || 'Volunteer slot'}</td>
+        <td>
+          <div>${slot.date || 'Date TBD'}</div>
+          <div class="muted">${toDisplayTime(slot.time)}</div>
+        </td>
+        <td>
+          <div>${spotsText}</div>
+          <div class="muted">${volunteerText}</div>
+        </td>
+        <td></td>
+      `;
+
+      const actionCell = row.querySelector('td:last-child');
+      actionCell.classList.add('table-actions');
+      const selectBtn = document.createElement('button');
+      selectBtn.type = 'button';
+      selectBtn.className = 'btn btn-secondary btn-inline';
+      selectBtn.textContent = 'Sign Up';
+      selectBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectSlot(slot.id);
+      });
+      row.addEventListener('click', () => selectSlot(slot.id));
+      actionCell.appendChild(selectBtn);
+
+      slotsTableBody.appendChild(row);
     });
-    projectSelect.disabled = false;
+
+    applySelectedRowState();
   };
 
-  const loadProjects = async () => {
-    projectSelect.disabled = true;
-    resetSlotSelect('Select a project first');
-    submitBtn.disabled = true;
-    setSlotNotice('');
+  const selectSlot = (slotId) => {
+    const slot = openSlots.find((entry) => entry.id === slotId);
+    if (!slot) return;
+
+    selectedSlotId = slotId;
+    const summaryParts = [];
+    summaryParts.push(slot.projectCategory ? `${slot.projectTitle} (${slot.projectCategory})` : slot.projectTitle);
+    if (slot.task) summaryParts.push(slot.task);
+    if (slot.date) summaryParts.push(slot.date);
+    if (slot.time) summaryParts.push(toDisplayTime(slot.time));
+    summaryParts.push(`${slot.spotsRemaining} spot${slot.spotsRemaining === 1 ? '' : 's'} left`);
+
+    selectedSlotSummary.textContent = summaryParts.join(' | ');
+    selectedSlotSummary.classList.remove('muted');
+    submitBtn.disabled = false;
     setSignupMessage('', null);
+    applySelectedRowState();
+  };
+
+  const loadOpenSlots = async () => {
+    showTableMessage('Loading open slots...');
+    setSlotsMessage('', null);
 
     try {
       const projects = await fetchJson(`${apiBaseUrl}/projects`);
       const projectList = Array.isArray(projects) ? projects : [];
-      populateProjectSelect(projectList);
 
-      if (projectList.length) {
-        const firstProjectId = projectList[0].id;
-        projectSelect.value = firstProjectId;
-        await loadSlotsForProject(firstProjectId);
-      } else {
-        setSlotNotice('There are currently no volunteer projects accepting signups.');
-      }
-    } catch (error) {
-      console.error('Failed to load projects', error);
-      populateProjectSelect([]);
-      setSignupMessage('Unable to load volunteer projects right now. Please try again a little later.', 'error');
-    }
-  };
-
-  const loadSlotsForProject = async (projectId) => {
-    if (!projectId) {
-      resetSlotSelect('Select a project first');
-      submitBtn.disabled = true;
-      return;
-    }
-
-    resetSlotSelect('Loading slots...', true);
-    submitBtn.disabled = true;
-    setSlotNotice('');
-
-    try {
-      const slots = await fetchJson(`${apiBaseUrl}/projects/${projectId}/slots`);
-      const availableSlots = (Array.isArray(slots) ? slots : []).filter((slot) => (slot.status || '').toLowerCase() === 'available');
-
-      if (!availableSlots.length) {
-        resetSlotSelect('No available slots at the moment');
-        setSlotNotice('All slots for this project are currently filled. Please choose another project.');
-        submitBtn.disabled = true;
-        return;
+      const combinedSlots = [];
+      for (const project of projectList) {
+        try {
+          const slotResponse = await fetchJson(`${apiBaseUrl}/projects/${project.id}/slots`);
+          const slotList = Array.isArray(slotResponse) ? slotResponse : [];
+          slotList.forEach((slot) => {
+            const status = (slot.status || '').toLowerCase();
+            const metrics = normalizeSlotMetrics(slot);
+            if (status !== 'available') return;
+            if (metrics.spotsRemaining <= 0) return;
+            combinedSlots.push({
+              id: slot.id,
+              projectId: project.id,
+              projectTitle: project.title || 'Project',
+              projectCategory: project.category || 'General',
+              task: slot.task,
+              date: slot.date,
+              time: slot.time,
+              capacity: metrics.capacity,
+              filledCount: metrics.filledCount,
+              spotsRemaining: metrics.spotsRemaining,
+              status
+            });
+          });
+        } catch (slotError) {
+          console.error(`Failed to load slots for project ${project.id}`, slotError);
+        }
       }
 
-      slotSelect.innerHTML = '';
-      slotSelect.appendChild(createOption('', 'Select a slot', { disabled: true, selected: true }));
-      availableSlots.forEach((slot) => {
-        const parts = [slot.task || 'Volunteer slot'];
-        if (slot.date) parts.push(slot.date);
-        if (slot.time) parts.push(slot.time);
-        slotSelect.appendChild(createOption(slot.id, parts.join(' - ')));
+      combinedSlots.sort((a, b) => {
+        const projectCompare = (a.projectTitle || '').localeCompare(b.projectTitle || '', undefined, { sensitivity: 'base' });
+        if (projectCompare !== 0) return projectCompare;
+        const dateCompare = (a.date || '').localeCompare(b.date || '');
+        if (dateCompare !== 0) return dateCompare;
+        return (a.time || '').localeCompare(b.time || '');
       });
 
-      slotSelect.disabled = false;
-      submitBtn.disabled = false;
+      openSlots = combinedSlots;
+      renderSlotsTable(openSlots);
+
+      if (openSlots.length === 0) {
+        clearSelectedSlot();
+        setSlotsMessage('All volunteer opportunities are currently filled. Please check back soon.', null);
+      } else if (selectedSlotId) {
+        const stillOpen = openSlots.some((slot) => slot.id === selectedSlotId);
+        if (!stillOpen) {
+          clearSelectedSlot('That slot was just filled. Please pick another opportunity.');
+          setSignupMessage('The slot you selected is no longer available. Please choose another opening.', 'error');
+        } else {
+          applySelectedRowState();
+        }
+      } else {
+        clearSelectedSlot();
+      }
     } catch (error) {
-      console.error(`Failed to load slots for project ${projectId}`, error);
-      resetSlotSelect('Unable to load slots');
-      setSlotNotice('We were unable to load slots for the selected project. Please try again.');
-      submitBtn.disabled = true;
+      console.error('Failed to load volunteer opportunities', error);
+      openSlots = [];
+      renderSlotsTable(openSlots);
+      clearSelectedSlot('We could not load open slots. Please try again later.');
+      setSlotsMessage('Unable to load volunteer opportunities. Please try again later.', 'error');
     }
   };
-
-  projectSelect.addEventListener('change', (event) => {
-    const projectId = event.target.value;
-    loadSlotsForProject(projectId);
-  });
 
   signupForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     setSignupMessage('', null);
 
-    const projectId = projectSelect.value;
-    const slotId = slotSelect.value;
+    if (!selectedSlotId) {
+      setSignupMessage('Select an open slot before submitting your information.', 'error');
+      return;
+    }
+
+    const slot = openSlots.find((entry) => entry.id === selectedSlotId);
+    if (!slot) {
+      setSignupMessage('The selected slot is no longer available. Please choose another opening.', 'error');
+      await loadOpenSlots();
+      return;
+    }
+
     const firstName = signupForm.firstName.value.trim();
     const lastName = signupForm.lastName.value.trim();
     const email = signupForm.email.value.trim();
     const phone = signupForm.phone.value.trim();
-
-    if (!projectId || !slotId) {
-      setSignupMessage('Please choose a project and slot before submitting.', 'error');
-      return;
-    }
 
     if (!firstName || !lastName || !email) {
       setSignupMessage('Please provide your first name, last name, and email address.', 'error');
@@ -175,7 +291,7 @@
     submitBtn.textContent = 'Signing Up...';
 
     try {
-      const response = await fetch(`${apiBaseUrl}/projects/${projectId}/slots/${slotId}/signup`, {
+      const response = await fetch(`${apiBaseUrl}/projects/${slot.projectId}/slots/${slot.id}/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -194,11 +310,12 @@
       if (response.status === 201) {
         setSignupMessage(data.message || 'Thank you for signing up! We will be in touch soon.', 'success');
         signupForm.reset();
-        projectSelect.value = projectId;
-        await loadSlotsForProject(projectId);
+        clearSelectedSlot();
+        await loadOpenSlots();
       } else if (response.status === 409) {
         setSignupMessage(data.error || 'That slot was just taken. Please choose another one.', 'error');
-        await loadSlotsForProject(projectId);
+        clearSelectedSlot('That slot was just filled. Please pick another opportunity.');
+        await loadOpenSlots();
       } else {
         setSignupMessage(data.error || data.message || 'We could not complete your signup. Please try again.', 'error');
       }
@@ -207,9 +324,12 @@
       setSignupMessage('We hit a technical issue while submitting your signup. Please try again in a moment.', 'error');
     } finally {
       submitBtn.textContent = 'Sign Up';
-      submitBtn.disabled = slotSelect.disabled;
+      submitBtn.disabled = !selectedSlotId;
     }
   });
 
-  document.addEventListener('DOMContentLoaded', loadProjects);
+  document.addEventListener('DOMContentLoaded', () => {
+    clearSelectedSlot();
+    loadOpenSlots();
+  });
 })();

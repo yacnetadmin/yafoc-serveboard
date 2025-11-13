@@ -42,6 +42,7 @@
               <tr>
                 <th>Project</th>
                 <th>Category</th>
+                <th>Volunteers</th>
                 <th>Contact</th>
                 <th>Email</th>
               </tr>
@@ -484,7 +485,7 @@
       const row = document.createElement('tr');
       row.className = 'table-message';
       const cell = document.createElement('td');
-      cell.colSpan = 4;
+      cell.colSpan = 5;
       cell.textContent = message;
       row.appendChild(cell);
       projectsTableBody.appendChild(row);
@@ -507,10 +508,19 @@
         const contact = getContact(project);
         const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
         const email = contact.email || 'N/A';
+        const totalNeeded = Number.isFinite(project.totalVolunteersNeeded) ? project.totalVolunteersNeeded : 0;
+        const totalFilled = Number.isFinite(project.totalVolunteersFilled) ? project.totalVolunteersFilled : 0;
+        const totalRemaining = Number.isFinite(project.totalSpotsRemaining) ? project.totalSpotsRemaining : Math.max(0, totalNeeded - totalFilled);
+        const volunteerSummary = `${totalFilled}/${totalNeeded}`;
+        const volunteerDetail = totalRemaining > 0 ? `${totalRemaining} open` : 'Full';
 
         row.innerHTML = `
           <td>${project.title || 'Untitled project'}</td>
           <td>${project.category || 'General'}</td>
+          <td>
+            <div>${volunteerSummary}</div>
+            <div class="muted">${volunteerDetail}</div>
+          </td>
           <td>${contactName || 'Unassigned'}</td>
           <td>${email}</td>
         `;
@@ -542,9 +552,13 @@
     const renderProjectDetail = (project) => {
       const contact = getContact(project);
       const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
+      const totalNeeded = Number.isFinite(project.totalVolunteersNeeded) ? project.totalVolunteersNeeded : 0;
+      const totalFilled = Number.isFinite(project.totalVolunteersFilled) ? project.totalVolunteersFilled : 0;
+      const totalRemaining = Number.isFinite(project.totalSpotsRemaining) ? project.totalSpotsRemaining : Math.max(0, totalNeeded - totalFilled);
       projectDetailTitle.textContent = project.title || 'Project details';
       const metaParts = [project.category || 'Uncategorized'];
       if (contactName) metaParts.push(`Contact: ${contactName}`);
+      metaParts.push(`Volunteers: ${totalFilled}/${totalNeeded}`);
       projectDetailSubtitle.textContent = metaParts.join(' | ');
 
       const rows = [
@@ -552,6 +566,9 @@
         ['Category', project.category || 'General'],
         ['Contact email', contact.email || 'N/A'],
         ['Contact phone', contact.phone || 'N/A'],
+        ['Total slots', project.totalSlots || 0],
+        ['Volunteers filled', `${totalFilled} of ${totalNeeded}`],
+        ['Open spots remaining', totalRemaining],
         ['Project ID', project.id]
       ];
 
