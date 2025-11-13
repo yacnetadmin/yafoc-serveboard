@@ -162,6 +162,8 @@ module.exports = async function (context, req) {
   }
 
   const entityUpdate = {
+    partitionKey: projectId,
+    rowKey: slotId,
     PartitionKey: projectId,
     RowKey: slotId
   };
@@ -183,13 +185,10 @@ module.exports = async function (context, req) {
     entityUpdate.VolunteerPhone = "";
   }
 
-  if (payload.volunteer === null) {
-    payload.volunteer = null;
-  }
+  const updateOptions = existing.etag ? { etag: existing.etag } : { etag: "*" };
 
   try {
-    entityUpdate.etag = existing.etag;
-    await client.updateEntity(entityUpdate, "Merge");
+    await client.updateEntity(entityUpdate, "Merge", updateOptions);
   } catch (err) {
     context.log.error("Error updating slot", err);
     context.res = {
