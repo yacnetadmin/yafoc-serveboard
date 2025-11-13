@@ -328,6 +328,7 @@ async function manageSlots(projectId) {
     console.log("2. Add a new slot");
     console.log("3. Update an existing slot");
     console.log("4. Delete a slot");
+    console.log("5. Simulate signup for a slot");
     console.log("0. Done");
     const choice = (await prompt("Choose an option: ")).trim();
     switch (choice) {
@@ -345,11 +346,61 @@ async function manageSlots(projectId) {
       case "4":
         await deleteSlot(projectId);
         break;
+      case "5":
+        await simulateSignup(projectId);
+        break;
       case "0":
         return;
       default:
         console.log("Unknown option, please try again.");
     }
+  }
+}
+
+async function simulateSignup(projectId) {
+  const slots = await listSlots(projectId);
+  if (!slots.length) {
+    console.log("No slots available to sign up for.");
+    return;
+  }
+
+  printSlots(slots);
+  const choice = (await prompt("Select slot number to sign up for: ")).trim();
+  if (!choice) {
+    console.log("No selection made.");
+    return;
+  }
+  const index = Number(choice) - 1;
+  if (!Number.isInteger(index) || index < 0 || index >= slots.length) {
+    console.log("Invalid selection.");
+    return;
+  }
+  const slot = slots[index];
+
+  const firstName = (await prompt("Volunteer first name: ")).trim();
+  const lastName = (await prompt("Volunteer last name: ")).trim();
+  const email = (await prompt("Volunteer email: ")).trim();
+  const phone = (await prompt("Volunteer phone: ")).trim();
+
+  if (!firstName || !lastName || !email) {
+    console.log("First name, last name, and email are required.");
+    return;
+  }
+
+  const { status, data } = await apiCall("/signup", "POST", {
+    projectId,
+    slotId: slot.id,
+    firstName,
+    lastName,
+    email,
+    phone
+  });
+
+  if (status === 200 || status === 201) {
+    console.log("Signup simulated successfully.");
+    console.log(JSON.stringify(data, null, 2));
+  } else {
+    console.log("Signup failed:", data.error || data);
   }
 }
 
