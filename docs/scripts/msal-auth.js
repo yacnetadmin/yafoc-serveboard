@@ -7,11 +7,11 @@ const msalConfig = {
     clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715",
     authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a1a5-de2c1068b6db",
     redirectUri: currentPageUri,
-    navigateToLoginRequestUrl: false,
-    cache: {
-      cacheLocation: "sessionStorage",
-      storeAuthStateInCookie: false
-    }
+    navigateToLoginRequestUrl: false
+  },
+  cache: {
+    cacheLocation: "sessionStorage",
+    storeAuthStateInCookie: false
   },
   system: {
     loggerOptions: {
@@ -57,6 +57,7 @@ const getActiveAccount = () => {
 msalInstance
   .handleRedirectPromise()
   .then((response) => {
+    redirectInFlight = false;
     if (response?.account) {
       msalInstance.setActiveAccount(response.account);
       notifyAuthListeners(response.account);
@@ -67,11 +68,24 @@ msalInstance
       notifyAuthListeners(existingAccount);
     }
   })
-  .catch((err) => console.error("MSAL redirect handling failed", err));
+  .catch((err) => {
+    redirectInFlight = false;
+    console.error("MSAL redirect handling failed", err);
+  });
+
+let redirectInFlight = false;
 
 const triggerRedirectSignIn = () => {
+  if (redirectInFlight) {
+    console.log("Redirect sign-in already in progress");
+    return;
+  }
+  redirectInFlight = true;
   console.log("Starting redirect sign-in flow");
-  msalInstance.loginRedirect(loginRequest);
+  msalInstance.loginRedirect(loginRequest).catch((error) => {
+    redirectInFlight = false;
+    console.error("Redirect sign-in failed", error);
+  });
 };
 
 const shouldFallbackToRedirect = (error) => {
@@ -94,20 +108,8 @@ async function signIn() {
     return account;
   }
 
-  try {
-    console.log("Attempting popup sign-in");
-    const loginResponse = await msalInstance.loginPopup(loginRequest);
-    msalInstance.setActiveAccount(loginResponse.account);
-    notifyAuthListeners(loginResponse.account);
-    return loginResponse.account;
-  } catch (error) {
-    console.warn("Popup sign-in unavailable, falling back to redirect", error);
-    if (shouldFallbackToRedirect(error)) {
-      triggerRedirectSignIn();
-      return null;
-    }
-    throw error;
-  }
+  triggerRedirectSignIn();
+  return null;
 }
 
 async function getAccessToken() {
@@ -132,8 +134,9 @@ async function getAccessToken() {
     console.warn("Silent token acquisition failed", error);
     if (error instanceof msal.InteractionRequiredAuthError || shouldFallbackToRedirect(error)) {
       console.log("Redirecting for interactive token acquisition");
-      await msalInstance.acquireTokenRedirect(tokenRequest);
-      return null;
+  redirectInFlight = true;
+  await msalInstance.acquireTokenRedirect(tokenRequest);
+  return null;
     }
     throw error;
   }
