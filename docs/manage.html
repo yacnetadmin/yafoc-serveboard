@@ -27,21 +27,134 @@
     </section>
 
     <div id="manageUI" class="stack is-hidden">
-      <section class="card">
+      <section class="card" id="projectOverviewCard">
         <div class="stack">
           <h2>Projects</h2>
-          <p class="muted">Review your active projects and add new slots as needed.</p>
-          <div class="project-controls">
+          <p class="muted">Select an existing project to review or update, or choose <strong>New Project</strong> to create one.</p>
+          <div class="page-toolbar">
             <button id="refreshProjects" type="button" class="btn btn-secondary btn-block-sm">Refresh Projects</button>
+            <button id="toggleCreateProject" type="button" class="btn btn-primary btn-block-sm">New Project</button>
           </div>
         </div>
-        <ul id="projectList"></ul>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Category</th>
+                <th>Contact</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody id="projectsTableBody">
+              <tr class="table-message"><td colspan="4">Sign in and refresh to load projects.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section class="card">
+      <section id="projectDetailCard" class="card is-hidden">
+        <header class="detail-header">
+          <div class="stack">
+            <h2 id="projectDetailTitle">Project Details</h2>
+            <p id="projectDetailSubtitle" class="muted"></p>
+          </div>
+          <div class="detail-actions">
+            <button id="backToProjects" type="button" class="btn btn-ghost btn-block-sm">Done with this project</button>
+          </div>
+        </header>
+
+        <div class="table-container">
+          <table class="kv-table">
+            <tbody id="projectDetailBody"></tbody>
+          </table>
+        </div>
+
         <div class="stack">
-          <h2>Create New Project</h2>
-          <p class="muted">Add a project with contact details so your team can coordinate volunteers.</p>
+          <div class="detail-header detail-header--sub">
+            <h3>Slots</h3>
+            <div class="detail-actions">
+              <button id="addSlotBtn" type="button" class="btn btn-secondary btn-block-sm">Add Slot</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th>Volunteer</th>
+                  <th class="nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="slotsTableBody">
+                <tr class="table-message"><td colspan="6">Select a project to see its slots.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="slotMsg" class="status-message"></div>
+
+          <form id="slotForm" class="slot-form stack" novalidate>
+            <h4 id="slotFormTitle">Add Slot</h4>
+            <div class="form-grid two-col">
+              <label class="form-field">
+                <span class="form-label">Task</span>
+                <input id="slotTask" name="task" placeholder="Describe the task" required />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Status</span>
+                <select id="slotStatus" name="status">
+                  <option value="available">Available</option>
+                  <option value="filled">Filled</option>
+                  <option value="held">Held</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span class="form-label">Date</span>
+                <input id="slotDate" name="date" type="date" required />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Time</span>
+                <input id="slotTime" name="time" type="time" required />
+              </label>
+            </div>
+            <div class="form-grid two-col">
+              <label class="form-field">
+                <span class="form-label">Volunteer Email</span>
+                <input id="slotVolunteerEmail" name="volunteerEmail" type="email" placeholder="Optional" />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Volunteer First Name</span>
+                <input id="slotVolunteerFirstName" name="volunteerFirstName" placeholder="Optional" />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Volunteer Last Name</span>
+                <input id="slotVolunteerLastName" name="volunteerLastName" placeholder="Optional" />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Volunteer Phone</span>
+                <input id="slotVolunteerPhone" name="volunteerPhone" type="tel" placeholder="Optional" />
+              </label>
+            </div>
+            <div class="slot-actions">
+              <button id="saveSlotBtn" type="submit" class="btn btn-primary btn-block-sm">Save Slot</button>
+              <button id="cancelSlotBtn" type="button" class="btn btn-ghost btn-block-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="createProjectCard" class="card is-hidden">
+        <div class="stack">
+          <div class="detail-header detail-header--sub">
+            <h2>Create New Project</h2>
+            <div class="detail-actions">
+              <button id="cancelCreateProject" type="button" class="btn btn-ghost btn-block-sm">Back to projects</button>
+            </div>
+          </div>
+          <p class="muted">Capture the key details so your team knows who to contact and what needs to happen.</p>
         </div>
         <form id="createProjectForm" class="form-grid two-col">
           <label class="form-field">
@@ -83,13 +196,342 @@
     const logoutBtn = document.getElementById('logoutBtn');
     const userInfo = document.getElementById('userInfo');
     const manageUI = document.getElementById('manageUI');
-    const projectList = document.getElementById('projectList');
+
+    const projectsTableBody = document.getElementById('projectsTableBody');
     const refreshProjects = document.getElementById('refreshProjects');
+    const toggleCreateProject = document.getElementById('toggleCreateProject');
+    const createProjectCard = document.getElementById('createProjectCard');
+    const cancelCreateProject = document.getElementById('cancelCreateProject');
+    const createProjectForm = document.getElementById('createProjectForm');
+    const projectMsg = document.getElementById('projectMsg');
+
+    const projectDetailCard = document.getElementById('projectDetailCard');
+    const projectDetailTitle = document.getElementById('projectDetailTitle');
+    const projectDetailSubtitle = document.getElementById('projectDetailSubtitle');
+    const projectDetailBody = document.getElementById('projectDetailBody');
+    const backToProjects = document.getElementById('backToProjects');
+
+    const slotsTableBody = document.getElementById('slotsTableBody');
+    const slotMsg = document.getElementById('slotMsg');
+    const addSlotBtn = document.getElementById('addSlotBtn');
+    const slotForm = document.getElementById('slotForm');
+    const slotFormTitle = document.getElementById('slotFormTitle');
+    const slotTask = document.getElementById('slotTask');
+    const slotStatus = document.getElementById('slotStatus');
+    const slotDate = document.getElementById('slotDate');
+    const slotTime = document.getElementById('slotTime');
+    const slotVolunteerEmail = document.getElementById('slotVolunteerEmail');
+    const slotVolunteerFirstName = document.getElementById('slotVolunteerFirstName');
+    const slotVolunteerLastName = document.getElementById('slotVolunteerLastName');
+    const slotVolunteerPhone = document.getElementById('slotVolunteerPhone');
+    const cancelSlotBtn = document.getElementById('cancelSlotBtn');
 
     const show = (el) => el.classList.remove('is-hidden');
     const hide = (el) => el.classList.add('is-hidden');
 
-    refreshProjects.addEventListener('click', loadProjects);
+    let projectsCache = [];
+    let selectedProjectId = null;
+    let activeProjectRow = null;
+
+    const getContact = (project) => {
+      const contact = project.contact || {};
+      return {
+        firstName: contact.firstName ?? project.contactFirstName ?? '',
+        lastName: contact.lastName ?? project.contactLastName ?? '',
+        email: contact.email ?? project.contactEmail ?? '',
+        phone: contact.phone ?? project.contactPhone ?? ''
+      };
+    };
+
+    const setProjectMessage = (message, type) => {
+      projectMsg.textContent = message || '';
+      projectMsg.classList.remove('status-message--error', 'status-message--success');
+      if (!message) return;
+      if (type === 'error') {
+        projectMsg.classList.add('status-message--error');
+      } else if (type === 'success') {
+        projectMsg.classList.add('status-message--success');
+      }
+    };
+
+    const setSlotMessage = (message, type) => {
+      slotMsg.textContent = message || '';
+      slotMsg.classList.remove('status-message--error', 'status-message--success');
+      if (!message) return;
+      if (type === 'error') {
+        slotMsg.classList.add('status-message--error');
+      } else if (type === 'success') {
+        slotMsg.classList.add('status-message--success');
+      }
+    };
+
+    const clearActiveProjectRow = () => {
+      if (activeProjectRow) {
+        activeProjectRow.classList.remove('table-row--active');
+      }
+      activeProjectRow = null;
+    };
+
+    const resetProjectTableMessage = (message) => {
+      projectsTableBody.innerHTML = '';
+      const row = document.createElement('tr');
+      row.className = 'table-message';
+      const cell = document.createElement('td');
+      cell.colSpan = 4;
+      cell.textContent = message;
+      row.appendChild(cell);
+      projectsTableBody.appendChild(row);
+    };
+
+    const renderProjectsTable = () => {
+      projectsTableBody.innerHTML = '';
+      clearActiveProjectRow();
+
+      if (!Array.isArray(projectsCache) || projectsCache.length === 0) {
+        resetProjectTableMessage('No projects yet. Select New Project to create one.');
+        selectedProjectId = null;
+        hide(projectDetailCard);
+        return;
+      }
+
+      projectsCache.forEach((project) => {
+        const row = document.createElement('tr');
+        row.dataset.projectId = project.id;
+        const contact = getContact(project);
+        const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
+  const email = contact.email || 'N/A';
+
+        row.innerHTML = `
+          <td>${project.title || 'Untitled project'}</td>
+          <td>${project.category || 'General'}</td>
+          <td>${contactName || 'Unassigned'}</td>
+          <td>${email}</td>
+        `;
+
+        row.addEventListener('click', () => {
+          if (activeProjectRow && activeProjectRow !== row) {
+            activeProjectRow.classList.remove('table-row--active');
+          }
+          activeProjectRow = row;
+          activeProjectRow.classList.add('table-row--active');
+          openProjectDetail(project.id);
+        });
+
+        projectsTableBody.appendChild(row);
+      });
+
+      if (selectedProjectId) {
+        const persistedRow = projectsTableBody.querySelector(`[data-project-id="${selectedProjectId}"]`);
+        if (persistedRow) {
+          activeProjectRow = persistedRow;
+          activeProjectRow.classList.add('table-row--active');
+        } else {
+          selectedProjectId = null;
+          hide(projectDetailCard);
+        }
+      }
+    };
+
+    const renderProjectDetail = (project) => {
+      const contact = getContact(project);
+      const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
+      projectDetailTitle.textContent = project.title || 'Project details';
+      const metaParts = [project.category || 'Uncategorized'];
+      if (contactName) metaParts.push(`Contact: ${contactName}`);
+  projectDetailSubtitle.textContent = metaParts.join(' | ');
+
+      const rows = [
+        ['Description', project.description || 'No description provided'],
+        ['Category', project.category || 'General'],
+  ['Contact email', contact.email || 'N/A'],
+  ['Contact phone', contact.phone || 'N/A'],
+        ['Project ID', project.id]
+      ];
+
+      projectDetailBody.innerHTML = '';
+      rows.forEach(([label, value]) => {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.scope = 'row';
+        th.textContent = label;
+        const td = document.createElement('td');
+        td.textContent = value;
+        tr.append(th, td);
+        projectDetailBody.appendChild(tr);
+      });
+    };
+
+    const closeSlotForm = () => {
+      slotForm.reset();
+      slotStatus.value = 'available';
+      slotForm.dataset.mode = '';
+      delete slotForm.dataset.slotId;
+      slotForm.classList.remove('active');
+    };
+
+    const openSlotForm = (mode, slot = null) => {
+      if (!selectedProjectId) return;
+      slotForm.dataset.mode = mode;
+      slotForm.dataset.slotId = slot?.id || '';
+      slotFormTitle.textContent = mode === 'edit' ? 'Update Slot' : 'Add Slot';
+      slotForm.reset();
+      slotStatus.value = 'available';
+
+      if (mode === 'edit' && slot) {
+        slotTask.value = slot.task || slot.title || '';
+        const statusValue = slot.status || 'available';
+        slotStatus.value = ['available', 'filled', 'held'].includes(statusValue) ? statusValue : 'available';
+        slotDate.value = slot.date || '';
+        slotTime.value = slot.time || '';
+        if (slot.volunteer) {
+          slotVolunteerEmail.value = slot.volunteer.email || '';
+          slotVolunteerFirstName.value = slot.volunteer.firstName || '';
+          slotVolunteerLastName.value = slot.volunteer.lastName || '';
+          slotVolunteerPhone.value = slot.volunteer.phone || '';
+        }
+      }
+
+      slotForm.classList.add('active');
+      slotForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const renderSlotsTable = (slots) => {
+      slotsTableBody.innerHTML = '';
+
+      if (!Array.isArray(slots) || slots.length === 0) {
+        const row = document.createElement('tr');
+        row.className = 'table-message';
+        const cell = document.createElement('td');
+        cell.colSpan = 6;
+        cell.textContent = 'No slots for this project yet.';
+        row.appendChild(cell);
+        slotsTableBody.appendChild(row);
+        return;
+      }
+
+      slots.forEach((slot) => {
+        const row = document.createElement('tr');
+
+        const volunteerName = slot.volunteer ? [slot.volunteer.firstName, slot.volunteer.lastName].filter(Boolean).join(' ').trim() : '';
+        const volunteerSummary = slot.volunteer
+          ? [volunteerName, slot.volunteer.email].filter(Boolean).join(' | ') || 'Assigned'
+          : 'Available';
+
+        row.innerHTML = `
+          <td>${slot.task || slot.title || 'Untitled slot'}</td>
+          <td>${slot.date || 'N/A'}</td>
+          <td>${slot.time || 'N/A'}</td>
+          <td>${slot.status || 'available'}</td>
+          <td>${volunteerSummary}</td>
+          <td></td>
+        `;
+
+        const actionsCell = row.querySelector('td:last-child');
+        actionsCell.classList.add('table-actions');
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-outline btn-inline';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          openSlotForm('edit', slot);
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-ghost btn-inline';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          if (!selectedProjectId) return;
+          const confirmed = window.confirm(`Delete slot "${slot.task || slot.title || 'slot'}"?`);
+          if (!confirmed) return;
+
+          setSlotMessage('Deleting slot...', null);
+          try {
+            const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slot.id}`, 'DELETE');
+            if (status === 204) {
+              setSlotMessage('Slot deleted.', 'success');
+              await loadSlots(selectedProjectId);
+            } else {
+              setSlotMessage('Failed to delete slot. Try again.', 'error');
+            }
+          } catch (err) {
+            console.error('Slot deletion error:', err);
+            setSlotMessage('Error deleting slot.', 'error');
+          }
+        });
+
+        actionsCell.append(editBtn, deleteBtn);
+        slotsTableBody.appendChild(row);
+      });
+    };
+
+    const loadSlots = async (projectId) => {
+      slotsTableBody.innerHTML = '';
+      const loadingRow = document.createElement('tr');
+      loadingRow.className = 'table-message';
+      const loadingCell = document.createElement('td');
+      loadingCell.colSpan = 6;
+  loadingCell.textContent = 'Loading slots...';
+      loadingRow.appendChild(loadingCell);
+      slotsTableBody.appendChild(loadingRow);
+
+      setSlotMessage('', null);
+      closeSlotForm();
+
+      try {
+        const { status, data } = await window.api.apiCall(`/api/projects/${projectId}/slots`);
+        if (status === 200) {
+          renderSlotsTable(data);
+        } else {
+          setSlotMessage('Unable to load slots right now.', 'error');
+          renderSlotsTable([]);
+        }
+      } catch (err) {
+        console.error('Error loading slots:', err);
+        setSlotMessage('Error loading slots.', 'error');
+        renderSlotsTable([]);
+      }
+    };
+
+    const openProjectDetail = async (projectId) => {
+      const project = projectsCache.find((p) => p.id === projectId);
+      if (!project) return;
+
+      selectedProjectId = projectId;
+      renderProjectDetail(project);
+      show(projectDetailCard);
+      await loadSlots(projectId);
+    };
+
+    const loadProjects = async () => {
+  resetProjectTableMessage('Loading projects...');
+      hide(projectDetailCard);
+      setSlotMessage('', null);
+      closeSlotForm();
+
+      try {
+        const { status, data } = await window.api.apiCall('/api/projects');
+        if (status !== 200) {
+          resetProjectTableMessage('Unable to load projects right now. Please try refreshing.');
+          return;
+        }
+
+        projectsCache = Array.isArray(data) ? [...data] : [];
+        projectsCache.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+
+        renderProjectsTable();
+
+        if (selectedProjectId) {
+          await openProjectDetail(selectedProjectId);
+        }
+      } catch (err) {
+        console.error('Error loading projects:', err);
+        resetProjectTableMessage('Error loading projects. Please try again later.');
+      }
+    };
 
     const applyAuthState = (account) => {
       if (account) {
@@ -104,7 +546,14 @@
         hide(logoutBtn);
         hide(userInfo);
         hide(manageUI);
-        projectList.innerHTML = '';
+        hide(projectDetailCard);
+        hide(createProjectCard);
+        clearActiveProjectRow();
+        selectedProjectId = null;
+        projectsTableBody.innerHTML = '';
+        setProjectMessage('', null);
+        setSlotMessage('', null);
+        slotForm.reset();
       }
     };
 
@@ -116,169 +565,123 @@
 
     logoutBtn.addEventListener('click', async () => {
       await window.msalAuth.signOut();
-      show(loginBtn);
-      hide(logoutBtn);
-      hide(userInfo);
-      hide(manageUI);
-      projectList.innerHTML = '';
+      applyAuthState(null);
     });
 
-    async function loadProjects() {
-      const { status, data } = await window.api.apiCall('/api/projects');
-      projectList.innerHTML = '';
+    refreshProjects.addEventListener('click', loadProjects);
 
-      if (status !== 200) {
-        const errorState = document.createElement('li');
-        errorState.className = 'empty-state';
-        errorState.textContent = 'Unable to load projects right now. Please try refreshing.';
-        projectList.appendChild(errorState);
+    toggleCreateProject.addEventListener('click', () => {
+      if (createProjectCard.classList.contains('is-hidden')) {
+        show(createProjectCard);
+        createProjectCard.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        hide(createProjectCard);
+      }
+    });
+
+    cancelCreateProject.addEventListener('click', () => {
+      hide(createProjectCard);
+      setProjectMessage('', null);
+    });
+
+    backToProjects.addEventListener('click', () => {
+      hide(projectDetailCard);
+      clearActiveProjectRow();
+      selectedProjectId = null;
+      setSlotMessage('', null);
+      closeSlotForm();
+      slotsTableBody.innerHTML = '';
+      const row = document.createElement('tr');
+      row.className = 'table-message';
+      const cell = document.createElement('td');
+      cell.colSpan = 6;
+      cell.textContent = 'Select a project to see its slots.';
+      row.appendChild(cell);
+      slotsTableBody.appendChild(row);
+    });
+
+    addSlotBtn.addEventListener('click', () => openSlotForm('create'));
+    cancelSlotBtn.addEventListener('click', () => {
+      closeSlotForm();
+      setSlotMessage('', null);
+    });
+
+    slotForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!selectedProjectId) {
+        setSlotMessage('Select a project before adding slots.', 'error');
         return;
       }
 
-      if (!Array.isArray(data) || data.length === 0) {
-        const emptyState = document.createElement('li');
-        emptyState.className = 'empty-state';
-        emptyState.textContent = 'No projects yet. Create one below to get started.';
-        projectList.appendChild(emptyState);
+      const mode = slotForm.dataset.mode || 'create';
+      const slotId = slotForm.dataset.slotId;
+
+      const task = slotTask.value.trim();
+      const date = slotDate.value;
+      const time = slotTime.value;
+      const statusValue = slotStatus.value;
+
+      if (!task || !date || !time) {
+        setSlotMessage('Task, date, and time are required.', 'error');
         return;
       }
 
-      for (const project of data) {
-        const projectCard = document.createElement('li');
-        projectCard.className = 'project-card';
+      const payload = { task, date, time };
+      if (mode === 'edit') {
+        payload.status = statusValue;
+      }
 
-        const header = document.createElement('div');
-        header.className = 'project-header';
-        header.innerHTML = `
-          <div class="stack">
-            <h3>${project.title}</h3>
-            <div class="project-header__meta">
-              <span>${project.category || 'No category'}</span>
-            </div>
-          </div>
-        `;
-        projectCard.appendChild(header);
+      if (mode === 'edit') {
+        const volunteerEmail = slotVolunteerEmail.value.trim();
+        const volunteerFirstNameValue = slotVolunteerFirstName.value.trim();
+        const volunteerLastNameValue = slotVolunteerLastName.value.trim();
+        const volunteerPhoneValue = slotVolunteerPhone.value.trim();
 
-        const description = document.createElement('div');
-        description.className = 'project-description';
-        description.textContent = project.description;
-        projectCard.appendChild(description);
-
-        const contact = document.createElement('div');
-        contact.className = 'project-contact';
-        contact.innerHTML = `
-          Contact: ${project.contactFirstName || ''} ${project.contactLastName || ''}<br>
-          Email: ${project.contactEmail || 'N/A'}<br>
-          Phone: ${project.contactPhone || 'N/A'}
-        `;
-        projectCard.appendChild(contact);
-
-        const slotsSection = document.createElement('div');
-        slotsSection.className = 'stack';
-        const slotsHeading = document.createElement('h4');
-        slotsHeading.textContent = 'Slots';
-        slotsSection.appendChild(slotsHeading);
-
-        const slotList = document.createElement('ul');
-        slotList.className = 'slot-list';
-
-        try {
-          const { status: slotStatus, data: slots } = await window.api.apiCall(`/api/projects/${project.id}/slots`);
-          if (slotStatus === 200 && Array.isArray(slots)) {
-            slots.forEach((slot) => {
-              const slotItem = document.createElement('li');
-              slotItem.className = 'slot-item';
-              slotItem.innerHTML = `
-                <div><strong>${slot.title || 'Untitled Slot'}</strong></div>
-                <div>${slot.description || 'No description'}</div>
-                ${slot.volunteer ? `<div>Filled by: ${slot.volunteer}</div>` : '<div>Available</div>'}
-              `;
-              slotList.appendChild(slotItem);
-            });
-          }
-        } catch (err) {
-          console.error('Error loading slots:', err);
+        if (volunteerEmail || volunteerFirstNameValue || volunteerLastNameValue || volunteerPhoneValue) {
+          payload.volunteer = {
+            email: volunteerEmail,
+            firstName: volunteerFirstNameValue,
+            lastName: volunteerLastNameValue,
+            phone: volunteerPhoneValue
+          };
+        } else {
+          payload.volunteer = null;
         }
-
-        slotsSection.appendChild(slotList);
-
-        const addSlotBtn = document.createElement('button');
-        addSlotBtn.className = 'btn btn-secondary btn-block-sm';
-        addSlotBtn.textContent = 'Add New Slot';
-
-        const slotForm = document.createElement('div');
-        slotForm.className = 'slot-form stack';
-        slotForm.innerHTML = `
-          <div class="form-grid">
-            <label class="form-field">
-              <span class="form-label">Slot Title</span>
-              <input type="text" placeholder="Slot Title" id="slot-title-${project.id}" required>
-            </label>
-            <label class="form-field">
-              <span class="form-label">Description</span>
-              <input type="text" placeholder="Description" id="slot-desc-${project.id}" required>
-            </label>
-          </div>
-          <div class="slot-actions">
-            <button type="button" class="btn btn-primary btn-block-sm" onclick="createSlot('${project.id}')">Save Slot</button>
-            <button type="button" class="btn btn-ghost btn-block-sm" onclick="this.closest('.slot-form').classList.remove('active')">Cancel</button>
-          </div>
-        `;
-
-        addSlotBtn.addEventListener('click', () => {
-          slotForm.classList.add('active');
-        });
-
-        slotsSection.appendChild(addSlotBtn);
-        slotsSection.appendChild(slotForm);
-        projectCard.appendChild(slotsSection);
-
-        projectList.appendChild(projectCard);
-      }
-    }
-
-    async function createSlot(projectId) {
-      const title = document.getElementById(`slot-title-${projectId}`).value;
-      const description = document.getElementById(`slot-desc-${projectId}`).value;
-      
-      if (!title || !description) {
-        alert('Please fill in all fields');
-        return;
       }
 
       try {
-        const { status, data } = await window.api.apiCall(`/api/projects/${projectId}/slots`, 'POST', {
-          title,
-          description
-        });
-
-        if (status === 201) {
-          loadProjects(); // Refresh the list
+  setSlotMessage('Saving slot...', null);
+        if (mode === 'edit' && slotId) {
+          const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slotId}`, 'PATCH', payload);
+          if (status >= 200 && status < 300) {
+            setSlotMessage('Slot updated.', 'success');
+          } else {
+            setSlotMessage('Failed to update slot. Please try again.', 'error');
+            return;
+          }
         } else {
-          alert(data.error || 'Failed to create slot');
+          const createPayload = { task, date, time };
+          const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots`, 'POST', createPayload);
+          if (status === 201) {
+            setSlotMessage('Slot created.', 'success');
+          } else {
+            setSlotMessage('Failed to create slot. Please try again.', 'error');
+            return;
+          }
         }
+
+        closeSlotForm();
+        await loadSlots(selectedProjectId);
       } catch (err) {
-        alert('Error creating slot: ' + err.message);
+        console.error('Slot save error:', err);
+        setSlotMessage('There was a problem saving the slot.', 'error');
       }
-    }
-    const projectMsg = document.getElementById('projectMsg');
+    });
 
-    const setStatusMessage = (message, type) => {
-      projectMsg.textContent = message;
-      projectMsg.classList.remove('status-message--error', 'status-message--success');
-      if (type === 'error') {
-        projectMsg.classList.add('status-message--error');
-      } else if (type === 'success') {
-        projectMsg.classList.add('status-message--success');
-      }
-    };
+    createProjectForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
 
-    document.getElementById('createProjectForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      
-      // Get form data
-      const formData = new FormData(form);
+      const formData = new FormData(createProjectForm);
       const project = {
         title: formData.get('title')?.trim(),
         description: formData.get('description')?.trim(),
@@ -289,35 +692,32 @@
         contactPhone: formData.get('contactPhone')?.trim()
       };
 
-      // Validate required fields
       if (!project.title || !project.description || !project.contactEmail) {
-        setStatusMessage('Please fill in all required fields (Title, Description, and Contact Email)', 'error');
+        setProjectMessage('Please fill in the required fields (Title, Description, Contact Email).', 'error');
         return;
       }
 
-      // Validate email format
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(project.contactEmail)) {
-        setStatusMessage('Please enter a valid email address', 'error');
+        setProjectMessage('Please enter a valid email address.', 'error');
         return;
       }
 
       try {
-        console.log('Sending project data:', project);
+  setProjectMessage('Creating project...', null);
         const { status, data } = await window.api.apiCall('/api/projects', 'POST', project);
-        console.log('API response:', { status, data });
-        
         if (status === 201) {
-          setStatusMessage('Project created successfully!', 'success');
-          form.reset();
-          await loadProjects(); // Refresh the project list
+          setProjectMessage('Project created successfully.', 'success');
+          createProjectForm.reset();
+          await loadProjects();
+          hide(createProjectCard);
         } else {
-          setStatusMessage(data.error || 'Failed to create project. Please try again.', 'error');
+          setProjectMessage(data?.error || 'Failed to create project. Please try again.', 'error');
         }
       } catch (err) {
-        setStatusMessage('Error creating project: ' + (err.message || 'Unknown error'), 'error');
         console.error('Project creation error:', err);
+        setProjectMessage('Error creating project. Please try again.', 'error');
       }
-    };
+    });
   </script>
 </body>
 </html>
