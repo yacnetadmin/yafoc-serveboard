@@ -203,6 +203,156 @@ async function listProjects() {
   }
 }
 
+async function listSlots(projectId) {
+  const { status, data } = await apiCall(`/projects/${projectId}/slots`);
+  if (status === 200 && Array.isArray(data)) {
+    return data;
+  }
+  console.log("Error retrieving slots:", data.error || data);
+  return [];
+}
+
+function printSlots(slots) {
+  if (!slots.length) {
+    console.log("No slots found for this project.");
+    return;
+  }
+  slots.forEach((slot, idx) => {
+    const volunteer = slot.volunteer
+      ? `${slot.volunteer.firstName || ""} ${slot.volunteer.lastName || ""} <${slot.volunteer.email || ""}>`.trim()
+      : "No volunteer";
+    const when = [slot.date, slot.time].filter(Boolean).join(" ");
+    console.log(`${idx + 1}. [${slot.id}] ${when} | ${slot.task || "(no task)"} | Status: ${slot.status || "unknown"} | ${volunteer}`);
+  });
+}
+
+async function pickSlot(slots, actionLabel) {
+  if (!slots.length) {
+    console.log("No slots available.");
+    return null;
+  }
+  printSlots(slots);
+  const choice = (await prompt(`Select slot number to ${actionLabel}: `)).trim();
+  if (!choice) {
+    console.log("No selection made.");
+    return null;
+  }
+  const index = Number(choice) - 1;
+  if (!Number.isInteger(index) || index < 0 || index >= slots.length) {
+    console.log("Invalid selection.");
+    return null;
+  }
+  return slots[index];
+}
+
+async function updateSlot(projectId) {
+  const slots = await listSlots(projectId);
+  const slot = await pickSlot(slots, "update");
+  if (!slot) return;
+
+  const payload = {};
+
+  const task = (await prompt(`Task [${slot.task || ""}]: `)).trim();
+  if (task) payload.task = task;
+
+  const date = (await prompt(`Date (YYYY-MM-DD) [${slot.date || ""}]: `)).trim();
+  if (date) payload.date = date;
+
+  const time = (await prompt(`Time (e.g. 6:00 PM) [${slot.time || ""}]: `)).trim();
+  if (time) {
+    const parsed = parseTimeInput(time);
+    if (!parsed) {
+      console.log("Invalid time format; skipping time update.");
+    } else {
+      payload.time = parsed;
+    }
+  }
+
+  const status = (await prompt(`Status [${slot.status || ""}]: `)).trim();
+  if (status) payload.status = status;
+
+  const volunteerChoice = (await prompt("Update volunteer info? (y/N): ")).trim().toLowerCase();
+  if (volunteerChoice === "y") {
+    const email = (await prompt(`Volunteer email (leave blank to remove) [${slot.volunteer?.email || "none"}]: `)).trim();
+    if (!email) {
+      payload.volunteer = null;
+    } else {
+      const firstName = (await prompt(`Volunteer first name [${slot.volunteer?.firstName || ""}]: `)).trim();
+      const lastName = (await prompt(`Volunteer last name [${slot.volunteer?.lastName || ""}]: `)).trim();
+      const phone = (await prompt(`Volunteer phone [${slot.volunteer?.phone || ""}]: `)).trim();
+      payload.volunteer = {
+        email,
+        firstName,
+        lastName,
+        phone
+      };
+    }
+  }
+
+  if (Object.keys(payload).length === 0) {
+    console.log("No changes entered; skipping update.");
+    return;
+  }
+
+  const { status: responseStatus, data } = await apiCall(`/projects/${projectId}/slots/${slot.id}`, "PATCH", payload);
+  if (responseStatus === 200) {
+    console.log("Slot updated successfully.");
+    printSlots([data.slot]);
+  } else {
+    console.log("Failed to update slot:", data.error || data);
+  }
+}
+
+async function deleteSlot(projectId) {
+  const slots = await listSlots(projectId);
+  const slot = await pickSlot(slots, "delete");
+  if (!slot) return;
+  const confirmation = (await prompt(`Are you sure you want to delete slot '${slot.id}'? (y/N): `)).trim().toLowerCase();
+  if (confirmation !== "y") {
+    console.log("Deletion cancelled.");
+    return;
+  }
+
+  const { status, data } = await apiCall(`/projects/${projectId}/slots/${slot.id}`, "DELETE");
+  if (status === 204) {
+    console.log("Slot deleted successfully.");
+  } else {
+    console.log("Failed to delete slot:", data.error || data);
+  }
+}
+
+async function manageSlots(projectId) {
+  while (true) {
+    console.log("\nSlot management options:");
+    console.log("1. List slots");
+    console.log("2. Add a new slot");
+    console.log("3. Update an existing slot");
+    console.log("4. Delete a slot");
+    console.log("0. Done");
+    const choice = (await prompt("Choose an option: ")).trim();
+    switch (choice) {
+      case "1": {
+        const slots = await listSlots(projectId);
+        printSlots(slots);
+        break;
+      }
+      case "2":
+        await addSlot(projectId);
+        break;
+      case "3":
+        await updateSlot(projectId);
+        break;
+      case "4":
+        await deleteSlot(projectId);
+        break;
+      case "0":
+        return;
+      default:
+        console.log("Unknown option, please try again.");
+    }
+  }
+}
+
 (async () => {
   const projects = await listProjects();
   let projectId;
@@ -227,10 +377,6 @@ async function listProjects() {
     if (!project) return;
     projectId = project.id;
   }
-  while (true) {
-    await addSlot(projectId);
-    const again = await prompt("Add another slot to this project? (y/n): ");
-    if (again.trim().toLowerCase() !== "y") break;
-  }
+  await manageSlots(projectId);
   console.log("Done.");
 })();
