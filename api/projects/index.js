@@ -8,14 +8,31 @@ async function validateMicrosoftToken(authHeader) {
   const token = authHeader.substring(7);
   const decoded = jwt.decode(token, { complete: true }) || {};
   const tokenHeader = decoded.header || {};
-  const tenantId = process.env.MICROSOFT_TENANT_ID;
-  const clientId = process.env.MICROSOFT_CLIENT_ID;
-  if (!tenantId || !clientId) {
-    throw new Error("Missing Microsoft identity configuration. Ensure MICROSOFT_TENANT_ID and MICROSOFT_CLIENT_ID are set.");
+  const payload = decoded.payload || {};
+  const configuredTenantId = (process.env.MICROSOFT_TENANT_ID || "").trim();
+  const clientId = (process.env.MICROSOFT_CLIENT_ID || "").trim();
+  if (!clientId) {
+    throw new Error("Missing Microsoft identity configuration. Ensure MICROSOFT_CLIENT_ID is set.");
   }
-  const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
-  const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
-  const audiences = [clientId, `api://${clientId}`];
+
+  const tokenTenantId = (payload.tid || payload.tenantId || "").trim();
+  const effectiveTenantId = tokenTenantId || configuredTenantId;
+  if (!effectiveTenantId) {
+    throw new Error("Unable to determine tenant from configuration or token.");
+  }
+  if (configuredTenantId && tokenTenantId && configuredTenantId !== tokenTenantId) {
+    console.warn("Token tenant does not match configured tenant", { configuredTenantId, tokenTenantId });
+  }
+
+  const issuer = payload.iss || `https://login.microsoftonline.com/${effectiveTenantId}/v2.0`;
+  const jwksUri = `https://login.microsoftonline.com/${effectiveTenantId}/discovery/v2.0/keys`;
+  const audiences = Array.from(new Set([
+    clientId,
+    `api://${clientId}`,
+    `api://${clientId}/.default`,
+    `api://${clientId}/user_impersonation`,
+    payload.aud
+  ].filter(Boolean)));
   const client = jwksClient({ jwksUri, cache: true, rateLimit: true, jwksRequestsPerMinute: 5 });
 
   function getKey(header, callback) {
@@ -41,7 +58,11 @@ async function validateMicrosoftToken(authHeader) {
           code: err.code,
           name: err.name,
           kid: tokenHeader.kid,
-          x5t: tokenHeader.x5t
+          x5t: tokenHeader.x5t,
+          audience: decoded && decoded.payload ? decoded.payload.aud : undefined,
+          issuer: decoded && decoded.payload ? decoded.payload.iss : undefined,
+          tenant: decoded && decoded.payload ? decoded.payload.tid : undefined,
+          jwksUri
         });
         return resolve(null);
       }
