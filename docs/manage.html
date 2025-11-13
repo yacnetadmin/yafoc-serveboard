@@ -60,6 +60,7 @@
             <p id="projectDetailSubtitle" class="muted"></p>
           </div>
           <div class="detail-actions">
+            <button id="editProjectBtn" type="button" class="btn btn-secondary btn-block-sm">Edit Project</button>
             <button id="backToProjects" type="button" class="btn btn-ghost btn-block-sm">Done with this project</button>
           </div>
         </header>
@@ -199,12 +200,12 @@
       <section id="createProjectCard" class="card is-hidden">
         <div class="stack">
           <div class="detail-header detail-header--sub">
-            <h2>Create New Project</h2>
+            <h2 id="projectFormTitle">Create New Project</h2>
             <div class="detail-actions">
               <button id="cancelCreateProject" type="button" class="btn btn-ghost btn-block-sm">Back to projects</button>
             </div>
           </div>
-          <p class="muted">Capture the key details so your team knows who to contact and what needs to happen.</p>
+          <p class="muted" id="projectFormDescription">Capture the key details so your team knows who to contact and what needs to happen.</p>
         </div>
         <form id="createProjectForm" class="form-grid two-col">
           <label class="form-field">
@@ -235,7 +236,7 @@
             <span class="form-label">Project Category</span>
             <input name="category" placeholder="Project Category" />
           </label>
-          <button type="submit" class="btn btn-primary">Create Project</button>
+          <button type="submit" class="btn btn-primary" id="projectSubmitBtn">Create Project</button>
         </form>
         <div id="projectMsg" class="status-message"></div>
       </section>
@@ -247,6 +248,7 @@
     const userInfo = document.getElementById('userInfo');
     const manageUI = document.getElementById('manageUI');
 
+    const projectOverviewCard = document.getElementById('projectOverviewCard');
     const projectsTableBody = document.getElementById('projectsTableBody');
     const refreshProjects = document.getElementById('refreshProjects');
     const toggleCreateProject = document.getElementById('toggleCreateProject');
@@ -255,11 +257,16 @@
     const createProjectForm = document.getElementById('createProjectForm');
     const projectMsg = document.getElementById('projectMsg');
 
+    const projectFormTitle = document.getElementById('projectFormTitle');
+    const projectFormDescription = document.getElementById('projectFormDescription');
+    const projectSubmitBtn = document.getElementById('projectSubmitBtn');
+
     const projectDetailCard = document.getElementById('projectDetailCard');
     const projectDetailTitle = document.getElementById('projectDetailTitle');
     const projectDetailSubtitle = document.getElementById('projectDetailSubtitle');
     const projectDetailBody = document.getElementById('projectDetailBody');
     const backToProjects = document.getElementById('backToProjects');
+    const editProjectBtn = document.getElementById('editProjectBtn');
 
     const slotsTableBody = document.getElementById('slotsTableBody');
     const slotMsg = document.getElementById('slotMsg');
@@ -282,6 +289,46 @@
     let projectsCache = [];
     let selectedProjectId = null;
     let activeProjectRow = null;
+    let editingProjectId = null;
+    let projectMessageClearHandle = null;
+
+    const projectCreateDescriptionText = projectFormDescription.textContent;
+
+    const scrollToElement = (element) => {
+      if (!element) return;
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const resetProjectFormState = () => {
+      editingProjectId = null;
+      createProjectForm.dataset.mode = 'create';
+      projectFormTitle.textContent = 'Create New Project';
+      projectFormDescription.textContent = projectCreateDescriptionText;
+      projectSubmitBtn.textContent = 'Create Project';
+      createProjectForm.reset();
+    };
+
+    const populateProjectForm = (project) => {
+      if (!project) return;
+
+      editingProjectId = project.id;
+      createProjectForm.dataset.mode = 'edit';
+      projectFormTitle.textContent = 'Edit Project';
+      projectFormDescription.textContent = 'Update the project details below.';
+      projectSubmitBtn.textContent = 'Save Changes';
+
+      createProjectForm.title.value = project.title || '';
+      createProjectForm.description.value = project.description || '';
+      createProjectForm.category.value = project.category || '';
+
+      const contact = getContact(project);
+      createProjectForm.contactEmail.value = contact.email || '';
+      createProjectForm.contactFirstName.value = contact.firstName || '';
+      createProjectForm.contactLastName.value = contact.lastName || '';
+      createProjectForm.contactPhone.value = contact.phone || '';
+    };
+
+    resetProjectFormState();
 
     const getContact = (project) => {
       const contact = project.contact || {};
@@ -294,6 +341,11 @@
     };
 
     const setProjectMessage = (message, type) => {
+      if (projectMessageClearHandle) {
+        clearTimeout(projectMessageClearHandle);
+        projectMessageClearHandle = null;
+      }
+
       projectMsg.textContent = message || '';
       projectMsg.classList.remove('status-message--error', 'status-message--success');
       if (!message) return;
@@ -349,7 +401,7 @@
         row.dataset.projectId = project.id;
         const contact = getContact(project);
         const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
-  const email = contact.email || 'N/A';
+        const email = contact.email || 'N/A';
 
         row.innerHTML = `
           <td>${project.title || 'Untitled project'}</td>
@@ -388,13 +440,13 @@
       projectDetailTitle.textContent = project.title || 'Project details';
       const metaParts = [project.category || 'Uncategorized'];
       if (contactName) metaParts.push(`Contact: ${contactName}`);
-  projectDetailSubtitle.textContent = metaParts.join(' | ');
+      projectDetailSubtitle.textContent = metaParts.join(' | ');
 
       const rows = [
         ['Description', project.description || 'No description provided'],
         ['Category', project.category || 'General'],
-  ['Contact email', contact.email || 'N/A'],
-  ['Contact phone', contact.phone || 'N/A'],
+        ['Contact email', contact.email || 'N/A'],
+        ['Contact phone', contact.phone || 'N/A'],
         ['Project ID', project.id]
       ];
 
@@ -524,7 +576,7 @@
       loadingRow.className = 'table-message';
       const loadingCell = document.createElement('td');
       loadingCell.colSpan = 6;
-  loadingCell.textContent = 'Loading slots...';
+      loadingCell.textContent = 'Loading slots...';
       loadingRow.appendChild(loadingCell);
       slotsTableBody.appendChild(loadingRow);
 
@@ -551,13 +603,19 @@
       if (!project) return;
 
       selectedProjectId = projectId;
+      if (createProjectForm.dataset.mode === 'edit') {
+        resetProjectFormState();
+        setProjectMessage('', null);
+        hide(createProjectCard);
+      }
       renderProjectDetail(project);
       show(projectDetailCard);
+      scrollToElement(projectDetailCard);
       await loadSlots(projectId);
     };
 
     const loadProjects = async () => {
-  resetProjectTableMessage('Loading projects...');
+      resetProjectTableMessage('Loading projects...');
       hide(projectDetailCard);
       setSlotMessage('', null);
       closeSlotForm();
@@ -598,6 +656,7 @@
         hide(manageUI);
         hide(projectDetailCard);
         hide(createProjectCard);
+        resetProjectFormState();
         clearActiveProjectRow();
         selectedProjectId = null;
         projectsTableBody.innerHTML = '';
@@ -621,17 +680,44 @@
     refreshProjects.addEventListener('click', loadProjects);
 
     toggleCreateProject.addEventListener('click', () => {
-      if (createProjectCard.classList.contains('is-hidden')) {
+      const isHidden = createProjectCard.classList.contains('is-hidden');
+      const isEditMode = createProjectForm.dataset.mode === 'edit';
+
+      if (isHidden) {
+        resetProjectFormState();
+        setProjectMessage('', null);
         show(createProjectCard);
-        createProjectCard.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        hide(createProjectCard);
+        scrollToElement(createProjectCard);
+        return;
       }
+
+      if (isEditMode) {
+        resetProjectFormState();
+        setProjectMessage('', null);
+        scrollToElement(createProjectCard);
+        return;
+      }
+
+      hide(createProjectCard);
+      resetProjectFormState();
+      setProjectMessage('', null);
     });
 
     cancelCreateProject.addEventListener('click', () => {
       hide(createProjectCard);
+      resetProjectFormState();
       setProjectMessage('', null);
+      scrollToElement(projectOverviewCard);
+    });
+
+    editProjectBtn.addEventListener('click', () => {
+      if (!selectedProjectId) return;
+      const project = projectsCache.find((p) => p.id === selectedProjectId);
+      if (!project) return;
+      populateProjectForm(project);
+      setProjectMessage('', null);
+      show(createProjectCard);
+      scrollToElement(createProjectCard);
     });
 
     backToProjects.addEventListener('click', () => {
@@ -648,6 +734,10 @@
       cell.textContent = 'Select a project to see its slots.';
       row.appendChild(cell);
       slotsTableBody.appendChild(row);
+      hide(createProjectCard);
+      resetProjectFormState();
+      setProjectMessage('', null);
+      scrollToElement(projectOverviewCard);
     });
 
     addSlotBtn.addEventListener('click', () => openSlotForm('create'));
@@ -700,7 +790,7 @@
       }
 
       try {
-  setSlotMessage('Saving slot...', null);
+        setSlotMessage('Saving slot...', null);
         if (mode === 'edit' && slotId) {
           const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slotId}`, 'PATCH', payload);
           if (status >= 200 && status < 300) {
@@ -731,6 +821,9 @@
     createProjectForm.addEventListener('submit', async (event) => {
       event.preventDefault();
 
+      const mode = createProjectForm.dataset.mode || 'create';
+      const targetProjectId = mode === 'edit' ? editingProjectId : null;
+
       const formData = new FormData(createProjectForm);
       const project = {
         title: formData.get('title')?.trim(),
@@ -753,19 +846,42 @@
       }
 
       try {
-  setProjectMessage('Creating project...', null);
-        const { status, data } = await window.api.apiCall('/api/projects', 'POST', project);
-        if (status === 201) {
-          setProjectMessage('Project created successfully.', 'success');
-          createProjectForm.reset();
-          await loadProjects();
-          hide(createProjectCard);
+        if (mode === 'edit') {
+          if (!targetProjectId) {
+            setProjectMessage('Select a project to edit before saving.', 'error');
+            return;
+          }
+
+          setProjectMessage('Saving project changes...', null);
+          const { status, data } = await window.api.apiCall(`/api/projects/${targetProjectId}`, 'PATCH', project);
+          if (status >= 200 && status < 300) {
+            setProjectMessage('Project updated successfully.', 'success');
+            selectedProjectId = targetProjectId;
+            await loadProjects();
+            resetProjectFormState();
+            hide(createProjectCard);
+            scrollToElement(projectDetailCard);
+            projectMessageClearHandle = setTimeout(() => setProjectMessage('', null), 2000);
+          } else {
+            setProjectMessage(data?.error || 'Failed to update project. Please try again.', 'error');
+          }
         } else {
-          setProjectMessage(data?.error || 'Failed to create project. Please try again.', 'error');
+          setProjectMessage('Creating project...', null);
+          const { status, data } = await window.api.apiCall('/api/projects', 'POST', project);
+          if (status === 201) {
+            setProjectMessage('Project created successfully.', 'success');
+            await loadProjects();
+            resetProjectFormState();
+            hide(createProjectCard);
+            scrollToElement(projectOverviewCard);
+            projectMessageClearHandle = setTimeout(() => setProjectMessage('', null), 2000);
+          } else {
+            setProjectMessage(data?.error || 'Failed to create project. Please try again.', 'error');
+          }
         }
       } catch (err) {
         console.error('Project creation error:', err);
-        setProjectMessage('Error creating project. Please try again.', 'error');
+        setProjectMessage(mode === 'edit' ? 'Error updating project. Please try again.' : 'Error creating project. Please try again.', 'error');
       }
     });
   </script>
