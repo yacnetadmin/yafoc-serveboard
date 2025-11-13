@@ -1,5 +1,4 @@
 const { TableClient } = require("@azure/data-tables");
-const { v4: uuidv4 } = require("uuid");
 const jwt = require("jsonwebtoken");
 const jwksClient = require("jwks-rsa");
 
@@ -21,7 +20,7 @@ async function validateMicrosoftToken(authHeader) {
     throw new Error("Unable to determine tenant from configuration or token.");
   }
   if (configuredTenantId && tokenTenantId && configuredTenantId !== tokenTenantId) {
-    console.warn("Token tenant does not match configured tenant (create-slot)", { configuredTenantId, tokenTenantId });
+    console.warn("Token tenant does not match configured tenant (slot volunteers)", { configuredTenantId, tokenTenantId });
   }
 
   const issuer = payload.iss || `https://login.microsoftonline.com/${effectiveTenantId}/v2.0`;
@@ -53,7 +52,7 @@ async function validateMicrosoftToken(authHeader) {
       algorithms: ["RS256"]
     }, (err, decodedToken) => {
       if (err) {
-        console.warn("Microsoft token validation failed (create-slot)", {
+        console.warn("Microsoft token validation failed (slot volunteers)", {
           message: err.message,
           code: err.code,
           name: err.name,
@@ -66,7 +65,7 @@ async function validateMicrosoftToken(authHeader) {
         });
         return resolve(null);
       }
-      console.log("Microsoft token validated (create-slot)", {
+      console.log("Microsoft token validated (slot volunteers)", {
         audience: decodedToken.aud,
         issuer: decodedToken.iss,
         subject: decodedToken.sub
@@ -77,66 +76,106 @@ async function validateMicrosoftToken(authHeader) {
 }
 
 module.exports = async function (context, req) {
-  // Require Microsoft auth for slot creation
+  const corsHeaders = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "https://yacnetadmin.github.io",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true"
+  };
+
+  if (req.method === "OPTIONS") {
+    context.res = {
+      status: 200,
+      headers: corsHeaders
+    };
+    return;
+  }
+
   let user;
   try {
     user = await validateMicrosoftToken(req.headers["authorization"]);
   } catch (configError) {
-    context.log.error("Configuration error while validating Microsoft token:", configError);
+    context.log.error("Configuration error while validating Microsoft token (slot volunteers)", configError);
     context.res = {
       status: 500,
+      headers: corsHeaders,
       body: { error: "Server configuration error. Please contact an administrator." }
     };
     return;
   }
+
   if (!user) {
-    context.res = { status: 401, body: { error: "Unauthorized. Please sign in with Microsoft." } };
+    context.res = {
+      status: 401,
+      headers: corsHeaders,
+      body: { error: "Unauthorized. Please sign in with Microsoft." }
+    };
     return;
   }
 
-  const { id } = context.bindingData; // project ID
-  const { task, date, time, capacity } = req.body || {};
-
-  if (!task || !date || !time) {
-    context.res = { status: 400, body: { error: "Missing required slot info." } };
-    return;
-  }
+  const projectId = context.bindingData.id;
+  const slotId = context.bindingData.slotId;
 
   const connectionString = process.env["AzureWebJobsStorage"] || process.env["TableStorageConnectionString"];
   if (!connectionString) {
-    context.log.error("No storage connection string configured for slot creation");
-    context.res = { status: 500, body: { error: "Storage configuration missing." } };
+    context.log.error("No storage connection string configured for slot volunteers");
+    context.res = {
+      status: 500,
+      headers: corsHeaders,
+      body: { error: "Storage configuration missing." }
+    };
     return;
   }
-  const tableClient = TableClient.fromConnectionString(connectionString, "Slots");
 
-  // Generate a unique slot ID
-  const slotId = uuidv4();
-  const partitionKey = id;
-  const rowKey = slotId;
-
-  const parsedCapacityRaw = parseInt(capacity, 10);
-  const parsedCapacity = Number.isFinite(parsedCapacityRaw) && parsedCapacityRaw > 0 ? parsedCapacityRaw : 1;
-
-  const entity = {
-    PartitionKey: partitionKey,
-    RowKey: rowKey,
-    Task: task,
-    Date: date,
-    Time: time,
-    Status: "available",
-    Capacity: parsedCapacity,
-    FilledCount: 0
-  };
+  const volunteersClient = TableClient.fromConnectionString(connectionString, "SlotVolunteers");
 
   try {
-    await tableClient.createEntity(entity);
-    context.res = {
-      status: 201,
-      body: { message: "Slot created successfully!", slotId }
-    };
-  } catch (error) {
-    context.log("Error creating slot:", error);
-    context.res = { status: 500, body: { error: "Failed to create slot." } };
+    await volunteersClient.createTable();
+  } catch (creationError) {
+    if (creationError.statusCode !== 409) {
+      context.log.error("Failed to ensure SlotVolunteers table exists", creationError);
+      context.res = {
+        status: 500,
+        headers: corsHeaders,
+        body: { error: "Unable to load volunteer signups." }
+      };
+      return;
+    }
   }
+
+  const volunteerPartition = `${projectId}|${slotId}`;
+  const volunteers = [];
+
+  try {
+    const entities = volunteersClient.listEntities({ queryOptions: { filter: `PartitionKey eq '${volunteerPartition}'` } });
+    for await (const entity of entities) {
+      volunteers.push({
+        id: entity.rowKey || entity.RowKey,
+        firstName: entity.FirstName,
+        lastName: entity.LastName,
+        email: entity.Email,
+        phone: entity.Phone,
+        signedUpUtc: entity.SignedUpUtc
+      });
+    }
+  } catch (err) {
+    context.log.error("Error querying volunteer signups", err);
+    context.res = {
+      status: 500,
+      headers: corsHeaders,
+      body: { error: "Failed to load volunteers for this slot." }
+    };
+    return;
+  }
+
+  volunteers.sort((a, b) => (a.signedUpUtc || "").localeCompare(b.signedUpUtc || ""));
+
+  context.res = {
+    status: 200,
+    headers: corsHeaders,
+    body: {
+      volunteers
+    }
+  };
 };

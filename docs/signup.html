@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Volunteer Signup</title>
   <link rel="stylesheet" href="assets/style.css">
-  <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.js"></script>
-  <script src="scripts/msal-auth.js"></script>
-  <script src="scripts/api.js"></script>
+  <script>
+    window.serveboard = window.serveboard || {};
+    window.serveboard.apiBaseUrl = window.serveboard.apiBaseUrl || 'https://yafoc-serveboard.azurewebsites.net/api';
+  </script>
   <script src="scripts/signup.js" defer></script>
 </head>
 <body>
@@ -18,22 +19,35 @@
       <form id="signupForm" class="form-grid">
         <label class="form-field">
           <span class="form-label">Project</span>
-          <select id="projectSelect" name="project"></select>
+          <select id="projectSelect" name="project" required disabled>
+            <option value="" disabled selected>Loading projects...</option>
+          </select>
         </label>
         <label class="form-field">
           <span class="form-label">Slot</span>
-          <select id="slotSelect" name="slot"></select>
+          <select id="slotSelect" name="slot" required disabled>
+            <option value="" disabled selected>Select a project first</option>
+          </select>
         </label>
         <label class="form-field">
-          <span class="form-label">Name</span>
-          <input name="name" required placeholder="Your Name" />
+          <span class="form-label">First Name</span>
+          <input id="firstName" name="firstName" required placeholder="First Name" autocomplete="given-name" />
+        </label>
+        <label class="form-field">
+          <span class="form-label">Last Name</span>
+          <input id="lastName" name="lastName" required placeholder="Last Name" autocomplete="family-name" />
         </label>
         <label class="form-field">
           <span class="form-label">Email</span>
-          <input name="email" type="email" required placeholder="Your Email" />
+          <input id="email" name="email" type="email" required placeholder="you@example.com" autocomplete="email" />
         </label>
-        <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+        <label class="form-field">
+          <span class="form-label">Phone (optional)</span>
+          <input id="phone" name="phone" type="tel" placeholder="Preferred phone" autocomplete="tel" />
+        </label>
+        <button id="submitBtn" type="submit" class="btn btn-primary btn-block" disabled>Sign Up</button>
       </form>
+      <div id="slotNotice" class="muted"></div>
       <div id="signupMsg" class="status-message"></div>
     </section>
   </main>

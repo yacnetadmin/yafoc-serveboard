@@ -86,7 +86,7 @@
                   <th>Date</th>
                   <th>Time</th>
                   <th>Status</th>
-                  <th>Volunteer</th>
+                  <th>Spots</th>
                   <th class="nowrap">Actions</th>
                 </tr>
               </thead>
@@ -97,7 +97,7 @@
           </div>
           <div id="slotMsg" class="status-message"></div>
 
-    <form id="slotForm" class="slot-form stack" novalidate>
+          <form id="slotForm" class="slot-form stack" novalidate>
             <h4 id="slotFormTitle">Add Slot</h4>
             <div class="form-grid two-col">
               <label class="form-field">
@@ -120,30 +120,25 @@
                 <span class="form-label">Time</span>
                 <input id="slotTime" name="time" type="time" required min="06:00" max="17:45" step="900" list="slotTimeOptions" value="06:00" />
               </label>
-            </div>
-            <div class="form-grid two-col">
               <label class="form-field">
-                <span class="form-label">Volunteer Email</span>
-                <input id="slotVolunteerEmail" name="volunteerEmail" type="email" placeholder="Optional" />
+                <span class="form-label">Volunteers Needed</span>
+                <input id="slotCapacity" name="capacity" type="number" min="1" step="1" required value="1" />
               </label>
-              <label class="form-field">
-                <span class="form-label">Volunteer First Name</span>
-                <input id="slotVolunteerFirstName" name="volunteerFirstName" placeholder="Optional" />
-              </label>
-              <label class="form-field">
-                <span class="form-label">Volunteer Last Name</span>
-                <input id="slotVolunteerLastName" name="volunteerLastName" placeholder="Optional" />
-              </label>
-              <label class="form-field">
-                <span class="form-label">Volunteer Phone</span>
-                <input id="slotVolunteerPhone" name="volunteerPhone" type="tel" placeholder="Optional" />
-              </label>
+              <div class="form-field">
+                <span class="form-label">Spots Summary</span>
+                <p id="slotSpotsSummary" class="muted">Spots remaining will appear when editing.</p>
+              </div>
             </div>
             <div class="slot-actions">
               <button id="saveSlotBtn" type="submit" class="btn btn-primary btn-block-sm">Save Slot</button>
               <button id="cancelSlotBtn" type="button" class="btn btn-ghost btn-block-sm">Cancel</button>
             </div>
           </form>
+          <section id="slotVolunteersSection" class="stack is-hidden">
+            <h5>Volunteers</h5>
+            <p id="slotVolunteersEmpty" class="muted">No one has signed up yet.</p>
+            <ul id="slotVolunteersList" class="volunteer-list"></ul>
+          </section>
         </div>
         <datalist id="slotTimeOptions">
           <option value="06:00"></option>
@@ -277,11 +272,13 @@
     const slotStatus = document.getElementById('slotStatus');
     const slotDate = document.getElementById('slotDate');
     const slotTime = document.getElementById('slotTime');
-    const slotVolunteerEmail = document.getElementById('slotVolunteerEmail');
-    const slotVolunteerFirstName = document.getElementById('slotVolunteerFirstName');
-    const slotVolunteerLastName = document.getElementById('slotVolunteerLastName');
-    const slotVolunteerPhone = document.getElementById('slotVolunteerPhone');
+    const slotCapacity = document.getElementById('slotCapacity');
+    const slotSpotsSummary = document.getElementById('slotSpotsSummary');
+    const slotVolunteersSection = document.getElementById('slotVolunteersSection');
+    const slotVolunteersEmpty = document.getElementById('slotVolunteersEmpty');
+    const slotVolunteersList = document.getElementById('slotVolunteersList');
     const cancelSlotBtn = document.getElementById('cancelSlotBtn');
+  const slotVolunteersEmptyDefaultText = slotVolunteersEmpty.textContent;
 
     const show = (el) => el.classList.remove('is-hidden');
     const hide = (el) => el.classList.add('is-hidden');
@@ -291,6 +288,114 @@
     let activeProjectRow = null;
     let editingProjectId = null;
     let projectMessageClearHandle = null;
+    let slotsCache = [];
+    const normalizeSlotMetrics = (slot) => {
+      const rawCapacity = parseInt(slot?.capacity, 10);
+      const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
+      const rawFilled = parseInt(slot?.filledCount, 10);
+      const fallbackFilled = slot?.volunteer ? 1 : 0;
+      const filledCount = Math.max(0, Number.isFinite(rawFilled) ? rawFilled : fallbackFilled);
+      const spotsRemaining = Math.max(0, capacity - filledCount);
+      return { capacity, filledCount, spotsRemaining };
+    };
+
+    const describeSlotSpots = (slot) => {
+      const { capacity, filledCount, spotsRemaining } = normalizeSlotMetrics(slot);
+      const parts = [`${filledCount} of ${capacity} filled`];
+      parts.push(spotsRemaining === 0 ? 'No open spots' : `${spotsRemaining} spot${spotsRemaining === 1 ? '' : 's'} open`);
+  return { summary: parts.join(' / '), capacity, filledCount, spotsRemaining };
+    };
+
+    const renderSlotVolunteers = (volunteers, slotId) => {
+      slotVolunteersList.innerHTML = '';
+      if (!Array.isArray(volunteers) || volunteers.length === 0) {
+        hide(slotVolunteersList);
+        slotVolunteersEmpty.textContent = slotVolunteersEmptyDefaultText;
+        show(slotVolunteersEmpty);
+        return;
+      }
+
+      hide(slotVolunteersEmpty);
+      slotVolunteersEmpty.textContent = slotVolunteersEmptyDefaultText;
+      show(slotVolunteersList);
+
+      volunteers.forEach((volunteer) => {
+        const li = document.createElement('li');
+        li.className = 'volunteer-list__item';
+
+        const nameParts = [volunteer.firstName, volunteer.lastName].filter(Boolean);
+        const name = nameParts.length > 0 ? nameParts.join(' ') : 'Volunteer';
+
+        const info = document.createElement('div');
+        info.className = 'volunteer-list__info';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'volunteer-list__name';
+        nameSpan.textContent = name;
+        const metaSpan = document.createElement('span');
+        metaSpan.className = 'volunteer-list__meta';
+        const metaParts = [];
+        if (volunteer.email) {
+          metaParts.push(volunteer.email);
+        } else {
+          metaParts.push('No email provided');
+        }
+        if (volunteer.phone) {
+          metaParts.push(volunteer.phone);
+        }
+        metaSpan.textContent = metaParts.join(' | ');
+        info.append(nameSpan, metaSpan);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-ghost btn-inline';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', async () => {
+          if (!selectedProjectId) return;
+          const confirmed = window.confirm(`Remove ${name} from this slot?`);
+          if (!confirmed) return;
+
+          try {
+            setSlotMessage('Removing volunteer...', null);
+            const { status, data } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slotId}/volunteers/${volunteer.id}`, 'DELETE');
+            if (status >= 200 && status < 300) {
+              setSlotMessage('Volunteer removed from slot.', 'success');
+              const slotUpdate = data?.slot;
+              if (slotUpdate) {
+                const slotIndex = slotsCache.findIndex((s) => s.id === slotId);
+                if (slotIndex !== -1) {
+                  slotsCache[slotIndex] = {
+                    ...slotsCache[slotIndex],
+                    ...slotUpdate
+                  };
+                  renderSlotsTable(slotsCache);
+                  if (slotForm.dataset.mode === 'edit' && slotForm.dataset.slotId === slotId) {
+                    if (slotUpdate.status) {
+                      const normalizedStatus = slotUpdate.status.toLowerCase();
+                      const validStatuses = ['available', 'filled', 'held'];
+                      if (validStatuses.includes(normalizedStatus)) {
+                        slotStatus.value = normalizedStatus;
+                      }
+                    }
+                    const metrics = describeSlotSpots(slotsCache[slotIndex]);
+                    slotSpotsSummary.textContent = metrics.summary;
+                  }
+                }
+              }
+              await loadSlotVolunteers(slotId);
+            } else {
+              setSlotMessage(data?.error || 'Failed to remove volunteer.', 'error');
+            }
+          } catch (err) {
+            console.error('Error removing volunteer:', err);
+            setSlotMessage('There was a problem removing this volunteer.', 'error');
+          }
+        });
+
+        li.append(info, removeBtn);
+        slotVolunteersList.appendChild(li);
+      });
+    };
+
 
     const projectCreateDescriptionText = projectFormDescription.textContent;
 
@@ -469,6 +574,12 @@
       slotForm.dataset.mode = '';
       delete slotForm.dataset.slotId;
       slotForm.classList.remove('active');
+      slotSpotsSummary.textContent = 'Spots remaining will appear when editing.';
+      hide(slotVolunteersSection);
+      hide(slotVolunteersList);
+      slotVolunteersEmpty.textContent = slotVolunteersEmptyDefaultText;
+      show(slotVolunteersEmpty);
+      slotVolunteersList.innerHTML = '';
     };
 
     const openSlotForm = (mode, slot = null) => {
@@ -485,12 +596,15 @@
         slotStatus.value = ['available', 'filled', 'held'].includes(statusValue) ? statusValue : 'available';
         slotDate.value = slot.date || '';
         slotTime.value = slot.time || '';
-        if (slot.volunteer) {
-          slotVolunteerEmail.value = slot.volunteer.email || '';
-          slotVolunteerFirstName.value = slot.volunteer.firstName || '';
-          slotVolunteerLastName.value = slot.volunteer.lastName || '';
-          slotVolunteerPhone.value = slot.volunteer.phone || '';
-        }
+        const metrics = describeSlotSpots(slot);
+        slotCapacity.value = metrics.capacity;
+        slotSpotsSummary.textContent = metrics.summary;
+        show(slotVolunteersSection);
+        loadSlotVolunteers(slot.id);
+      } else {
+        slotCapacity.value = 1;
+        hide(slotVolunteersSection);
+        slotSpotsSummary.textContent = 'Spots remaining will appear when editing.';
       }
 
       slotForm.classList.add('active');
@@ -513,18 +627,19 @@
 
       slots.forEach((slot) => {
         const row = document.createElement('tr');
-
-        const volunteerName = slot.volunteer ? [slot.volunteer.firstName, slot.volunteer.lastName].filter(Boolean).join(' ').trim() : '';
-        const volunteerSummary = slot.volunteer
-          ? [volunteerName, slot.volunteer.email].filter(Boolean).join(' | ') || 'Assigned'
-          : 'Available';
+        row.dataset.slotId = slot.id;
+        const metrics = describeSlotSpots(slot);
+        const availabilityLabel = metrics.spotsRemaining === 0 ? 'Full' : `${metrics.spotsRemaining} open`;
 
         row.innerHTML = `
           <td>${slot.task || slot.title || 'Untitled slot'}</td>
           <td>${slot.date || 'N/A'}</td>
           <td>${slot.time || 'N/A'}</td>
           <td>${slot.status || 'available'}</td>
-          <td>${volunteerSummary}</td>
+          <td>
+            <div>${metrics.filledCount}/${metrics.capacity} filled</div>
+            <div class="muted">${availabilityLabel}</div>
+          </td>
           <td></td>
         `;
 
@@ -570,6 +685,35 @@
       });
     };
 
+    const loadSlotVolunteers = async (slotId) => {
+      if (!selectedProjectId || !slotId) return;
+
+      show(slotVolunteersSection);
+      hide(slotVolunteersList);
+      slotVolunteersEmpty.textContent = 'Loading volunteers...';
+      show(slotVolunteersEmpty);
+
+      try {
+        const { status, data } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slotId}/volunteers`);
+        if (status === 200) {
+          renderSlotVolunteers(data?.volunteers ?? [], slotId);
+        } else {
+          slotVolunteersEmpty.textContent = data?.error || 'Failed to load volunteers for this slot.';
+        }
+      } catch (err) {
+        console.error('Error loading slot volunteers:', err);
+        slotVolunteersEmpty.textContent = 'Error loading volunteers for this slot.';
+        hide(slotVolunteersList);
+        show(slotVolunteersEmpty);
+      }
+
+      const slotEntry = slotsCache.find((s) => s.id === slotId);
+      if (slotEntry) {
+        const metrics = describeSlotSpots(slotEntry);
+        slotSpotsSummary.textContent = metrics.summary;
+      }
+    };
+
     const loadSlots = async (projectId) => {
       slotsTableBody.innerHTML = '';
       const loadingRow = document.createElement('tr');
@@ -586,15 +730,18 @@
       try {
         const { status, data } = await window.api.apiCall(`/api/projects/${projectId}/slots`);
         if (status === 200) {
-          renderSlotsTable(data);
+          slotsCache = Array.isArray(data) ? [...data] : [];
+          renderSlotsTable(slotsCache);
         } else {
+          slotsCache = [];
           setSlotMessage('Unable to load slots right now.', 'error');
-          renderSlotsTable([]);
+          renderSlotsTable(slotsCache);
         }
       } catch (err) {
         console.error('Error loading slots:', err);
         setSlotMessage('Error loading slots.', 'error');
-        renderSlotsTable([]);
+        slotsCache = [];
+        renderSlotsTable(slotsCache);
       }
     };
 
@@ -662,7 +809,7 @@
         projectsTableBody.innerHTML = '';
         setProjectMessage('', null);
         setSlotMessage('', null);
-        slotForm.reset();
+        closeSlotForm();
       }
     };
 
@@ -760,48 +907,46 @@
       const date = slotDate.value;
       const time = slotTime.value;
       const statusValue = slotStatus.value;
+      const capacityRaw = parseInt(slotCapacity.value, 10);
+      const capacityValue = Number.isFinite(capacityRaw) && capacityRaw > 0 ? capacityRaw : NaN;
 
       if (!task || !date || !time) {
         setSlotMessage('Task, date, and time are required.', 'error');
         return;
       }
 
-      const payload = { task, date, time };
-      if (mode === 'edit') {
-        payload.status = statusValue;
+      if (!Number.isFinite(capacityValue)) {
+        setSlotMessage('Enter how many volunteers are needed (whole number greater than zero).', 'error');
+        return;
       }
 
-      if (mode === 'edit') {
-        const volunteerEmail = slotVolunteerEmail.value.trim();
-        const volunteerFirstNameValue = slotVolunteerFirstName.value.trim();
-        const volunteerLastNameValue = slotVolunteerLastName.value.trim();
-        const volunteerPhoneValue = slotVolunteerPhone.value.trim();
-
-        if (volunteerEmail || volunteerFirstNameValue || volunteerLastNameValue || volunteerPhoneValue) {
-          payload.volunteer = {
-            email: volunteerEmail,
-            firstName: volunteerFirstNameValue,
-            lastName: volunteerLastNameValue,
-            phone: volunteerPhoneValue
-          };
-        } else {
-          payload.volunteer = null;
-        }
-      }
+      const basePayload = { task, date, time, capacity: capacityValue };
+      const updatePayload = mode === 'edit' ? { ...basePayload, status: statusValue } : basePayload;
 
       try {
         setSlotMessage('Saving slot...', null);
         if (mode === 'edit' && slotId) {
-          const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slotId}`, 'PATCH', payload);
+          const { status, data } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots/${slotId}`, 'PATCH', updatePayload);
           if (status >= 200 && status < 300) {
             setSlotMessage('Slot updated.', 'success');
+            const slotIndex = slotsCache.findIndex((s) => s.id === slotId);
+            if (slotIndex !== -1 && data?.slot) {
+              slotsCache[slotIndex] = {
+                ...slotsCache[slotIndex],
+                ...data.slot,
+                task,
+                date,
+                time,
+                status: updatePayload.status
+              };
+              renderSlotsTable(slotsCache);
+            }
           } else {
             setSlotMessage('Failed to update slot. Please try again.', 'error');
             return;
           }
         } else {
-          const createPayload = { task, date, time };
-          const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots`, 'POST', createPayload);
+          const { status } = await window.api.apiCall(`/api/projects/${selectedProjectId}/slots`, 'POST', basePayload);
           if (status === 201) {
             setSlotMessage('Slot created.', 'success');
           } else {

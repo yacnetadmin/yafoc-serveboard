@@ -14,12 +14,21 @@ module.exports = async function (context, req) {
         // Query all slots for this project (PartitionKey = projectId)
         const entities = client.listEntities({ queryOptions: { filter: `PartitionKey eq '${projectId}'` } });
         for await (const entity of entities) {
+            const rawCapacity = parseInt(entity.Capacity ?? entity.capacity ?? 1, 10);
+            const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
+            const inferredFilled = entity.VolunteerEmail ? 1 : 0;
+            const rawFilledCount = parseInt(entity.FilledCount ?? entity.filledCount ?? inferredFilled, 10);
+            const filledCount = Math.max(0, Number.isFinite(rawFilledCount) ? rawFilledCount : 0);
+            const spotsRemaining = Math.max(0, capacity - filledCount);
             let slot = {
                 id: entity.rowKey || entity.RowKey,
                 task: entity.Task,
                 status: entity.Status,
                 date: entity.Date,
                 time: entity.Time,
+                capacity,
+                filledCount,
+                spotsRemaining,
                 volunteer: entity.VolunteerEmail ? {
                     email: entity.VolunteerEmail,
                     firstName: entity.VolunteerFirstName,

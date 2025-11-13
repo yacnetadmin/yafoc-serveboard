@@ -1,0 +1,18 @@
+{
+  "scriptFile": "index.js",
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": ["delete", "options"],
+      "route": "projects/{id}/slots/{slotId}/volunteers/{volunteerId}"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"
+    }
+  ]
+}

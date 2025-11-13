@@ -145,7 +145,7 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const allowedFields = ["task", "date", "time", "status", "volunteer"];
+  const allowedFields = ["task", "date", "time", "status", "volunteer", "capacity"];
   const payload = {};
   for (const key of allowedFields) {
     if (Object.prototype.hasOwnProperty.call(updates, key)) {
@@ -172,6 +172,26 @@ module.exports = async function (context, req) {
   if (payload.date !== undefined) entityUpdate.Date = payload.date;
   if (payload.time !== undefined) entityUpdate.Time = payload.time;
   if (payload.status !== undefined) entityUpdate.Status = payload.status;
+
+  if (payload.capacity !== undefined) {
+    const currentFilled = parseInt(existing.FilledCount ?? existing.filledCount ?? 0, 10) || 0;
+    const parsedCapacity = parseInt(payload.capacity, 10);
+    if (!Number.isFinite(parsedCapacity) || parsedCapacity < 1) {
+      context.res = {
+        status: 400,
+        body: { error: "Capacity must be a whole number greater than zero." }
+      };
+      return;
+    }
+    if (parsedCapacity < currentFilled) {
+      context.res = {
+        status: 400,
+        body: { error: `Capacity (${parsedCapacity}) cannot be less than the number of volunteers already assigned (${currentFilled}).` }
+      };
+      return;
+    }
+    entityUpdate.Capacity = parsedCapacity;
+  }
 
   if (payload.volunteer) {
     entityUpdate.VolunteerEmail = payload.volunteer.email || "";
@@ -204,6 +224,9 @@ module.exports = async function (context, req) {
     date: payload.date !== undefined ? payload.date : existing.Date,
     time: payload.time !== undefined ? payload.time : existing.Time,
     status: payload.status !== undefined ? payload.status : existing.Status,
+    capacity: payload.capacity !== undefined
+      ? parseInt(payload.capacity, 10)
+      : parseInt(existing.Capacity ?? existing.capacity ?? 1, 10) || 1,
     volunteer: payload.volunteer !== undefined ? payload.volunteer : (existing.VolunteerEmail ? {
       email: existing.VolunteerEmail,
       firstName: existing.VolunteerFirstName,
