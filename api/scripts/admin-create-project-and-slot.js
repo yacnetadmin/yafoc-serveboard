@@ -1,7 +1,9 @@
 // admin-create-project-and-slot.js
 // Lets you create a project, then add slots to it, or add slots to an existing project.
 const readline = require("readline");
-const fetch = require("node-fetch");
+const fetch = global.fetch
+  ? global.fetch.bind(global)
+  : (...args) => import("node-fetch").then(({ default: fn }) => fn(...args));
 const fs = require("fs");
 const path = require("path");
 const { PublicClientApplication } = require("@azure/msal-node");
@@ -11,16 +13,6 @@ async function prompt(question) {
   return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans); }));
 }
 
-const tenantId = process.env.MICROSOFT_TENANT_ID;
-const clientId = process.env.MICROSOFT_CLIENT_ID;
-
-if (!tenantId || !clientId) {
-  console.error("Missing MICROSOFT_TENANT_ID or MICROSOFT_CLIENT_ID environment variables. Set them before running this script.");
-  process.exit(1);
-}
-
-const authority = `https://login.microsoftonline.com/${tenantId}`;
-const scopes = [process.env.MICROSOFT_SCOPE || `api://${clientId}/.default`];
 const cachePath = path.join(__dirname, ".msal-cache.json");
 
 const cachePlugin = {
@@ -37,12 +29,37 @@ const cachePlugin = {
   }
 };
 
-const msalApp = new PublicClientApplication({
-  auth: { clientId, authority },
-  cache: { cachePlugin }
-});
+let tenantId = (process.env.MICROSOFT_TENANT_ID || "").trim();
+let clientId = (process.env.MICROSOFT_CLIENT_ID || "").trim();
+let scopes;
+let msalApp;
+
+async function ensureAuthInitialized() {
+  if (!tenantId) {
+    tenantId = (await prompt("Microsoft tenant ID (GUID): ")).trim();
+  }
+  if (!clientId) {
+    clientId = (await prompt("Microsoft client ID (GUID): ")).trim();
+  }
+  if (!tenantId || !clientId) {
+    console.error("Microsoft tenant and client IDs are required to continue.");
+    process.exit(1);
+  }
+  process.env.MICROSOFT_TENANT_ID = tenantId;
+  process.env.MICROSOFT_CLIENT_ID = clientId;
+
+  if (!msalApp) {
+    const authority = `https://login.microsoftonline.com/${tenantId}`;
+    scopes = [process.env.MICROSOFT_SCOPE || `api://${clientId}/.default`];
+    msalApp = new PublicClientApplication({
+      auth: { clientId, authority },
+      cache: { cachePlugin }
+    });
+  }
+}
 
 async function getAccessToken() {
+  await ensureAuthInitialized();
   const accounts = await msalApp.getTokenCache().getAllAccounts();
   if (accounts.length > 0) {
     try {

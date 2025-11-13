@@ -24,6 +24,7 @@ local.settings.json
 
 node_modules
 dist
+.msal-cache.json
 
 # Local python packages
 .python_packages/
