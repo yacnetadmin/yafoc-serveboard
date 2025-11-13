@@ -5,40 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Volunteer Signup</title>
   <link rel="stylesheet" href="assets/style.css">
-  <style>
-    .main-container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
-    h2 { color: #2a4d69; text-align: center; }
-    form { margin-top: 2rem; }
-    label { display: block; margin-top: 1rem; }
-    select, input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; border-radius: 4px; border: 1px solid #ccc; }
-    button { background: #4b86b4; color: #fff; padding: 0.75rem 2rem; border-radius: 4px; border: none; font-weight: bold; margin-top: 1.5rem; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #2a4d69; }
-    #signupMsg { margin-top: 1.5rem; text-align: center; font-weight: bold; }
-  </style>
   <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.js"></script>
   <script src="scripts/msal-auth.js"></script>
   <script src="scripts/api.js"></script>
   <script src="scripts/signup.js" defer></script>
 </head>
 <body>
-  <div class="main-container">
-    <h2>Volunteer Signup</h2>
-    <form id="signupForm">
-      <label>Project
-        <select id="projectSelect" name="project"></select>
-      </label>
-      <label>Slot
-        <select id="slotSelect" name="slot"></select>
-      </label>
-      <label>Name
-        <input name="name" required placeholder="Your Name" />
-      </label>
-      <label>Email
-        <input name="email" type="email" required placeholder="Your Email" />
-      </label>
-      <button type="submit">Sign Up</button>
-    </form>
-    <div id="signupMsg"></div>
-  </div>
+  <main class="page page--narrow">
+    <section class="card">
+      <h1 class="center-text">Volunteer Signup</h1>
+      <p class="muted center-text">Choose a project slot and let us know how to reach you.</p>
+      <form id="signupForm" class="form-grid">
+        <label class="form-field">
+          <span class="form-label">Project</span>
+          <select id="projectSelect" name="project"></select>
+        </label>
+        <label class="form-field">
+          <span class="form-label">Slot</span>
+          <select id="slotSelect" name="slot"></select>
+        </label>
+        <label class="form-field">
+          <span class="form-label">Name</span>
+          <input name="name" required placeholder="Your Name" />
+        </label>
+        <label class="form-field">
+          <span class="form-label">Email</span>
+          <input name="email" type="email" required placeholder="Your Email" />
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+      </form>
+      <div id="signupMsg" class="status-message"></div>
+    </section>
+  </main>
 </body>
 </html>

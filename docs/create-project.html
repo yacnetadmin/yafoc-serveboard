@@ -1,3 +1,32 @@
-<nav style="text-align:right; margin-bottom:1rem;">
-  <button onclick="window.msalAuth.signOut()" style="background:#2a4d69;color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:bold;">Logout</button>
-</nav>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Project - ServeBoard</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+  <script src="scripts/msal-auth.js"></script>
+</head>
+<body>
+  <main class="page page--narrow">
+    <section class="card">
+      <header class="page-header">
+        <h1 class="page-header__title">Create Project</h1>
+        <div class="page-header__actions">
+          <button id="logoutBtn" type="button" class="btn btn-outline btn-block-sm">Logout</button>
+        </div>
+      </header>
+      <p class="muted">Project management now lives in the <a href="manage.html">ServeBoard staff portal</a>. Head there to add new projects or slots and manage existing opportunities.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-block" href="manage.html">Go to Staff Portal</a>
+      </div>
+    </section>
+  </main>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      window.msalAuth.signOut();
+    });
+  </script>
+</body>
+</html>

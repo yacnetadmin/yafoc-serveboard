@@ -1,10 +1,12 @@
 // MSAL.js v2 basic setup for SPA
 // You must run `npm install @azure/msal-browser` and bundle, or use CDN in HTML
+const currentPageUri = `${window.location.origin}${window.location.pathname}`;
+
 const msalConfig = {
   auth: {
     clientId: "1bad36bb-ea69-44f2-a2f5-0a23078b6715",
     authority: "https://login.microsoftonline.com/7be79f78-a660-436f-a1a5-de2c1068b6db",
-    redirectUri: "https://yacnetadmin.github.io/yafoc-serveboard/manage.html",
+    redirectUri: currentPageUri,
     navigateToLoginRequestUrl: false,
     cache: {
       cacheLocation: "sessionStorage",
@@ -21,80 +23,136 @@ const msalConfig = {
     }
   }
 };
+
 console.log("MSAL Config:", JSON.stringify(msalConfig, null, 2));
+
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-async function signIn() {
-  const loginRequest = {
-    scopes: ["openid", "profile"],
-    prompt: "select_account",
-    extraQueryParameters: {
-      response_mode: "fragment"
+const loginRequest = {
+  scopes: ["openid", "profile"],
+  prompt: "select_account"
+};
+
+const apiScopes = ["openid", "profile", "api://1bad36bb-ea69-44f2-a2f5-0a23078b6715/.default"];
+
+const authListeners = [];
+
+const notifyAuthListeners = (account) => {
+  authListeners.forEach((callback) => {
+    try {
+      callback(account || null);
+    } catch (err) {
+      console.error("Auth listener error", err);
     }
-  };
+  });
+};
+
+const getActiveAccount = () => {
+  const activeAccount = msalInstance.getActiveAccount();
+  if (activeAccount) return activeAccount;
+  const accounts = msalInstance.getAllAccounts();
+  return accounts.length ? accounts[0] : null;
+};
+
+msalInstance
+  .handleRedirectPromise()
+  .then((response) => {
+    if (response?.account) {
+      msalInstance.setActiveAccount(response.account);
+      notifyAuthListeners(response.account);
+      return;
+    }
+    const existingAccount = getActiveAccount();
+    if (existingAccount) {
+      notifyAuthListeners(existingAccount);
+    }
+  })
+  .catch((err) => console.error("MSAL redirect handling failed", err));
+
+const triggerRedirectSignIn = () => {
+  console.log("Starting redirect sign-in flow");
+  msalInstance.loginRedirect(loginRequest);
+};
+
+const shouldFallbackToRedirect = (error) => {
+  const redirectCodes = new Set([
+    "popup_window_error",
+    "popup_window_open_error",
+    "token_renewal_error",
+    "interaction_in_progress",
+    "interaction_required",
+    "monitor_window_timeout",
+    "user_cancelled"
+  ]);
+  return redirectCodes.has(error?.errorCode);
+};
+
+async function signIn() {
+  const account = getActiveAccount();
+  if (account) {
+    notifyAuthListeners(account);
+    return account;
+  }
+
   try {
-    console.log("Starting sign-in process with config:", JSON.stringify(msalConfig, null, 2));
-    
+    console.log("Attempting popup sign-in");
     const loginResponse = await msalInstance.loginPopup(loginRequest);
-    console.log("Sign-in successful:", loginResponse);
+    msalInstance.setActiveAccount(loginResponse.account);
+    notifyAuthListeners(loginResponse.account);
     return loginResponse.account;
-  } catch (err) {
-    console.error("Login failed:", err);
-    console.error("Error details:", {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-      errorCode: err.errorCode,
-      errorMessage: err.errorMessage,
-      subError: err.subError
-    });
-    alert("Login failed: " + err.message + "\n\nPlease check the browser console for more details.");
-    return null;
+  } catch (error) {
+    console.warn("Popup sign-in unavailable, falling back to redirect", error);
+    if (shouldFallbackToRedirect(error)) {
+      triggerRedirectSignIn();
+      return null;
+    }
+    throw error;
   }
 }
 
 async function getAccessToken() {
-  console.log("Getting access token...");
-  const accounts = msalInstance.getAllAccounts();
-  console.log("Available accounts:", accounts);
-  
-  const account = accounts[0];
+  console.log("Requesting access token");
+  const account = getActiveAccount();
   if (!account) {
-    console.log("No signed-in account found");
+    console.log("No signed-in account detected; initiating redirect sign-in");
+    triggerRedirectSignIn();
     return null;
   }
 
-  const tokenRequest = { 
-    scopes: ["openid", "profile", "api://1bad36bb-ea69-44f2-a2f5-0a23078b6715/.default"],
+  const tokenRequest = {
+    scopes: apiScopes,
     account,
-    authenticationScheme: "bearer",
-    extraQueryParameters: {
-      response_mode: "fragment"
-    }
+    authenticationScheme: "bearer"
   };
-  
+
   try {
-    console.log("Attempting silent token acquisition...");
     const response = await msalInstance.acquireTokenSilent(tokenRequest);
-    console.log("Silent token acquisition successful");
     return response.accessToken;
-  } catch (e) {
-    console.log("Silent token acquisition failed, falling back to popup:", e);
-    // fallback to popup
-    try {
-      const response = await msalInstance.acquireTokenPopup(tokenRequest);
-      console.log("Popup token acquisition successful");
-      return response.accessToken;
-    } catch (err) {
-      console.error("Token acquisition failed:", err);
-      alert("Token acquisition failed: " + err.message + "\n\nPlease check the browser console for more details.");
+  } catch (error) {
+    console.warn("Silent token acquisition failed", error);
+    if (error instanceof msal.InteractionRequiredAuthError || shouldFallbackToRedirect(error)) {
+      console.log("Redirecting for interactive token acquisition");
+      await msalInstance.acquireTokenRedirect(tokenRequest);
       return null;
+    }
+    throw error;
+  }
+}
+
+function signOut() {
+  const postLogoutRedirectUri = new URL('logout.html', window.location.href).toString();
+  notifyAuthListeners(null);
+  msalInstance.logoutRedirect({ postLogoutRedirectUri });
+}
+
+function onAuthStateChanged(callback) {
+  if (typeof callback === "function") {
+    authListeners.push(callback);
+    const account = getActiveAccount();
+    if (account) {
+      callback(account);
     }
   }
 }
-function signOut() {
-  msalInstance.logoutRedirect({
-    postLogoutRedirectUri: "https://yacnetadmin.github.io/yafoc-serveboard/logout.html"
-  });
-}
-window.msalAuth = { signIn, getAccessToken, signOut };
+
+window.msalAuth = { signIn, getAccessToken, signOut, getActiveAccount, onAuthStateChanged };

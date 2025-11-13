@@ -9,178 +9,231 @@
   <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
   <script src="scripts/msal-auth.js"></script>
   <script src="scripts/api.js"></script>
-  <style>
-    .main-container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-    .header h1 { margin: 0; color: #2a4d69; }
-    #loginBtn { background: #2a4d69; color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1rem; }
-    #loginBtn:hover { background: #4b86b4; }
-    #userInfo { color: #666; margin-bottom: 1rem; }
-    .project-section { margin-bottom: 2rem; }
-    .project-controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    #refreshProjects { background: #4b86b4; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-    #projectList { list-style: none; padding: 0; }
-    .project-card { background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    .project-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; }
-    .project-title { margin: 0; color: #2a4d69; font-size: 1.2rem; }
-    .project-category { color: #666; font-size: 0.9rem; }
-    .project-description { color: #444; margin-bottom: 1rem; }
-    .project-contact { font-size: 0.9rem; color: #666; margin-bottom: 1rem; }
-    .slot-list { list-style: none; padding: 0; margin: 1rem 0; }
-    .slot-item { background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 0.5rem; margin-bottom: 0.5rem; }
-    .add-slot-btn { background: #2a4d69; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-    .add-slot-btn:hover { background: #4b86b4; }
-    .slot-form { display: none; background: #fff; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 1rem; }
-    .slot-form.active { display: block; }
-    .slot-form input { width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
-    .slot-actions { display: flex; gap: 0.5rem; }
-    #createProjectForm { display: grid; gap: 1rem; max-width: 600px; }
-    #createProjectForm input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
-    #createProjectForm button { background: #2a4d69; color: #fff; border: none; padding: 0.75rem; border-radius: 4px; cursor: pointer; }
-    #projectMsg { margin-top: 1rem; color: #4b86b4; }
-    .logout-btn { background: #2a4d69; color: #fff; border: none; padding: 0.5rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .logout-btn:hover { background: #4b86b4; }
-  </style>
 </head>
 <body>
-  <div class="main-container">
-    <div class="header">
-      <h1>Staff Portal</h1>
-      <div id="auth-section">
-        <button id="loginBtn">Sign in with Microsoft</button>
-        <button onclick="window.msalAuth.signOut()" id="logoutBtn" class="logout-btn" style="display:none">Logout</button>
-      </div>
-    </div>
-    
-    <div id="userInfo" style="display:none;"></div>
-    <div id="manageUI" style="display:none;">
-      <div class="project-section">
-        <h2>Projects</h2>
-        <div class="project-controls">
-          <button id="refreshProjects">Refresh Projects</button>
+  <main class="page">
+    <section class="card">
+      <header class="page-header">
+        <div>
+          <h1 class="page-header__title">Staff Portal</h1>
+          <p class="muted">Manage projects and volunteer slots for ServeBoard.</p>
+        </div>
+        <div class="page-header__actions">
+          <button id="loginBtn" type="button" class="btn btn-primary btn-block-sm">Sign in with Microsoft</button>
+          <button id="logoutBtn" type="button" class="btn btn-outline btn-block-sm is-hidden">Logout</button>
+        </div>
+      </header>
+      <div id="userInfo" class="auth-info is-hidden"></div>
+    </section>
+
+    <div id="manageUI" class="stack is-hidden">
+      <section class="card">
+        <div class="stack">
+          <h2>Projects</h2>
+          <p class="muted">Review your active projects and add new slots as needed.</p>
+          <div class="project-controls">
+            <button id="refreshProjects" type="button" class="btn btn-secondary btn-block-sm">Refresh Projects</button>
+          </div>
         </div>
         <ul id="projectList"></ul>
-      </div>
-      
-      <div class="project-section">
-        <h2>Create New Project</h2>
-        <form id="createProjectForm">
-          <input name="title" placeholder="Project Title" required />
-          <input name="description" placeholder="Project Description" required />
-          <input name="contactEmail" placeholder="Contact Email" required type="email" />
-          <input name="contactFirstName" placeholder="Contact First Name" />
-          <input name="contactLastName" placeholder="Contact Last Name" />
-          <input name="contactPhone" placeholder="Contact Phone" type="tel" />
-          <input name="category" placeholder="Project Category" />
-          <button type="submit">Create Project</button>
+      </section>
+
+      <section class="card">
+        <div class="stack">
+          <h2>Create New Project</h2>
+          <p class="muted">Add a project with contact details so your team can coordinate volunteers.</p>
+        </div>
+        <form id="createProjectForm" class="form-grid two-col">
+          <label class="form-field">
+            <span class="form-label">Project Title</span>
+            <input name="title" placeholder="Project Title" required />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Project Description</span>
+            <input name="description" placeholder="Project Description" required />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Contact Email</span>
+            <input name="contactEmail" placeholder="Contact Email" required type="email" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Contact First Name</span>
+            <input name="contactFirstName" placeholder="Contact First Name" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Contact Last Name</span>
+            <input name="contactLastName" placeholder="Contact Last Name" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Contact Phone</span>
+            <input name="contactPhone" placeholder="Contact Phone" type="tel" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Project Category</span>
+            <input name="category" placeholder="Project Category" />
+          </label>
+          <button type="submit" class="btn btn-primary">Create Project</button>
         </form>
-        <div id="projectMsg"></div>
-      </div>
+        <div id="projectMsg" class="status-message"></div>
+      </section>
     </div>
-  </div>
+  </main>
   <script>
-    document.getElementById('loginBtn').onclick = async () => {
-      const user = await window.msalAuth.signIn();
-      if (user) {
-        document.getElementById('loginBtn').style.display = 'none';
-        document.getElementById('logoutBtn').style.display = '';
-        document.getElementById('userInfo').style.display = '';
-        document.getElementById('userInfo').innerText = `Signed in as: ${user.username}`;
-        document.getElementById('manageUI').style.display = '';
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userInfo = document.getElementById('userInfo');
+    const manageUI = document.getElementById('manageUI');
+    const projectList = document.getElementById('projectList');
+    const refreshProjects = document.getElementById('refreshProjects');
+
+    const show = (el) => el.classList.remove('is-hidden');
+    const hide = (el) => el.classList.add('is-hidden');
+
+    refreshProjects.addEventListener('click', loadProjects);
+
+    const applyAuthState = (account) => {
+      if (account) {
+        hide(loginBtn);
+        show(logoutBtn);
+        userInfo.textContent = `Signed in as: ${account.username}`;
+        show(userInfo);
+        show(manageUI);
         loadProjects();
+      } else {
+        show(loginBtn);
+        hide(logoutBtn);
+        hide(userInfo);
+        hide(manageUI);
+        projectList.innerHTML = '';
       }
     };
-    document.getElementById('refreshProjects').onclick = loadProjects;
+
+    window.msalAuth.onAuthStateChanged(applyAuthState);
+
+    loginBtn.addEventListener('click', () => {
+      window.msalAuth.signIn();
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      await window.msalAuth.signOut();
+      show(loginBtn);
+      hide(logoutBtn);
+      hide(userInfo);
+      hide(manageUI);
+      projectList.innerHTML = '';
+    });
+
     async function loadProjects() {
       const { status, data } = await window.api.apiCall('/api/projects');
-      const container = document.getElementById('projectList');
-      container.innerHTML = '';
-      if (Array.isArray(data)) {
-        for (const project of data) {
-          const projectCard = document.createElement('div');
-          projectCard.className = 'project-card';
-          
-          // Project header with title and category
-          const header = document.createElement('div');
-          header.className = 'project-header';
-          header.innerHTML = `
-            <div>
-              <h3 class="project-title">${project.title}</h3>
-              <div class="project-category">${project.category || 'No category'}</div>
+      projectList.innerHTML = '';
+
+      if (status !== 200) {
+        const errorState = document.createElement('li');
+        errorState.className = 'empty-state';
+        errorState.textContent = 'Unable to load projects right now. Please try refreshing.';
+        projectList.appendChild(errorState);
+        return;
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        const emptyState = document.createElement('li');
+        emptyState.className = 'empty-state';
+        emptyState.textContent = 'No projects yet. Create one below to get started.';
+        projectList.appendChild(emptyState);
+        return;
+      }
+
+      for (const project of data) {
+        const projectCard = document.createElement('li');
+        projectCard.className = 'project-card';
+
+        const header = document.createElement('div');
+        header.className = 'project-header';
+        header.innerHTML = `
+          <div class="stack">
+            <h3>${project.title}</h3>
+            <div class="project-header__meta">
+              <span>${project.category || 'No category'}</span>
             </div>
-          `;
-          projectCard.appendChild(header);
+          </div>
+        `;
+        projectCard.appendChild(header);
 
-          // Project description
-          const description = document.createElement('div');
-          description.className = 'project-description';
-          description.textContent = project.description;
-          projectCard.appendChild(description);
+        const description = document.createElement('div');
+        description.className = 'project-description';
+        description.textContent = project.description;
+        projectCard.appendChild(description);
 
-          // Contact information
-          const contact = document.createElement('div');
-          contact.className = 'project-contact';
-          contact.innerHTML = `
-            Contact: ${project.contactFirstName || ''} ${project.contactLastName || ''}<br>
-            Email: ${project.contactEmail || 'N/A'}<br>
-            Phone: ${project.contactPhone || 'N/A'}
-          `;
-          projectCard.appendChild(contact);
+        const contact = document.createElement('div');
+        contact.className = 'project-contact';
+        contact.innerHTML = `
+          Contact: ${project.contactFirstName || ''} ${project.contactLastName || ''}<br>
+          Email: ${project.contactEmail || 'N/A'}<br>
+          Phone: ${project.contactPhone || 'N/A'}
+        `;
+        projectCard.appendChild(contact);
 
-          // Slots section
-          const slotsSection = document.createElement('div');
-          slotsSection.innerHTML = '<h4>Slots</h4>';
-          const slotList = document.createElement('ul');
-          slotList.className = 'slot-list';
+        const slotsSection = document.createElement('div');
+        slotsSection.className = 'stack';
+        const slotsHeading = document.createElement('h4');
+        slotsHeading.textContent = 'Slots';
+        slotsSection.appendChild(slotsHeading);
 
-          // Load slots for this project
-          try {
-            const { data: slots } = await window.api.apiCall(`/api/projects/${project.id}/slots`);
-            if (Array.isArray(slots)) {
-              slots.forEach(slot => {
-                const slotItem = document.createElement('li');
-                slotItem.className = 'slot-item';
-                slotItem.innerHTML = `
-                  <div><strong>${slot.title || 'Untitled Slot'}</strong></div>
-                  <div>${slot.description || 'No description'}</div>
-                  ${slot.volunteer ? `<div>Filled by: ${slot.volunteer}</div>` : '<div>Available</div>'}
-                `;
-                slotList.appendChild(slotItem);
-              });
-            }
-          } catch (err) {
-            console.error('Error loading slots:', err);
+        const slotList = document.createElement('ul');
+        slotList.className = 'slot-list';
+
+        try {
+          const { status: slotStatus, data: slots } = await window.api.apiCall(`/api/projects/${project.id}/slots`);
+          if (slotStatus === 200 && Array.isArray(slots)) {
+            slots.forEach((slot) => {
+              const slotItem = document.createElement('li');
+              slotItem.className = 'slot-item';
+              slotItem.innerHTML = `
+                <div><strong>${slot.title || 'Untitled Slot'}</strong></div>
+                <div>${slot.description || 'No description'}</div>
+                ${slot.volunteer ? `<div>Filled by: ${slot.volunteer}</div>` : '<div>Available</div>'}
+              `;
+              slotList.appendChild(slotItem);
+            });
           }
-
-          slotsSection.appendChild(slotList);
-
-          // Add slot button
-          const addSlotBtn = document.createElement('button');
-          addSlotBtn.className = 'add-slot-btn';
-          addSlotBtn.textContent = 'Add New Slot';
-          
-          // Slot creation form
-          const slotForm = document.createElement('div');
-          slotForm.className = 'slot-form';
-          slotForm.innerHTML = `
-            <input type="text" placeholder="Slot Title" id="slot-title-${project.id}" required>
-            <input type="text" placeholder="Description" id="slot-desc-${project.id}" required>
-            <div class="slot-actions">
-              <button type="button" class="add-slot-btn" onclick="createSlot('${project.id}')">Save Slot</button>
-              <button type="button" onclick="this.parentElement.parentElement.classList.remove('active')" style="background:#666">Cancel</button>
-            </div>
-          `;
-
-          addSlotBtn.onclick = () => {
-            slotForm.classList.add('active');
-          };
-
-          slotsSection.appendChild(addSlotBtn);
-          slotsSection.appendChild(slotForm);
-          projectCard.appendChild(slotsSection);
-
-          container.appendChild(projectCard);
+        } catch (err) {
+          console.error('Error loading slots:', err);
         }
+
+        slotsSection.appendChild(slotList);
+
+        const addSlotBtn = document.createElement('button');
+        addSlotBtn.className = 'btn btn-secondary btn-block-sm';
+        addSlotBtn.textContent = 'Add New Slot';
+
+        const slotForm = document.createElement('div');
+        slotForm.className = 'slot-form stack';
+        slotForm.innerHTML = `
+          <div class="form-grid">
+            <label class="form-field">
+              <span class="form-label">Slot Title</span>
+              <input type="text" placeholder="Slot Title" id="slot-title-${project.id}" required>
+            </label>
+            <label class="form-field">
+              <span class="form-label">Description</span>
+              <input type="text" placeholder="Description" id="slot-desc-${project.id}" required>
+            </label>
+          </div>
+          <div class="slot-actions">
+            <button type="button" class="btn btn-primary btn-block-sm" onclick="createSlot('${project.id}')">Save Slot</button>
+            <button type="button" class="btn btn-ghost btn-block-sm" onclick="this.closest('.slot-form').classList.remove('active')">Cancel</button>
+          </div>
+        `;
+
+        addSlotBtn.addEventListener('click', () => {
+          slotForm.classList.add('active');
+        });
+
+        slotsSection.appendChild(addSlotBtn);
+        slotsSection.appendChild(slotForm);
+        projectCard.appendChild(slotsSection);
+
+        projectList.appendChild(projectCard);
       }
     }
 
@@ -208,10 +261,21 @@
         alert('Error creating slot: ' + err.message);
       }
     }
+    const projectMsg = document.getElementById('projectMsg');
+
+    const setStatusMessage = (message, type) => {
+      projectMsg.textContent = message;
+      projectMsg.classList.remove('status-message--error', 'status-message--success');
+      if (type === 'error') {
+        projectMsg.classList.add('status-message--error');
+      } else if (type === 'success') {
+        projectMsg.classList.add('status-message--success');
+      }
+    };
+
     document.getElementById('createProjectForm').onsubmit = async (e) => {
       e.preventDefault();
       const form = e.target;
-      const msgElement = document.getElementById('projectMsg');
       
       // Get form data
       const formData = new FormData(form);
@@ -227,15 +291,13 @@
 
       // Validate required fields
       if (!project.title || !project.description || !project.contactEmail) {
-        msgElement.innerText = 'Please fill in all required fields (Title, Description, and Contact Email)';
-        msgElement.style.color = '#dc3545';
+        setStatusMessage('Please fill in all required fields (Title, Description, and Contact Email)', 'error');
         return;
       }
 
       // Validate email format
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(project.contactEmail)) {
-        msgElement.innerText = 'Please enter a valid email address';
-        msgElement.style.color = '#dc3545';
+        setStatusMessage('Please enter a valid email address', 'error');
         return;
       }
 
@@ -245,17 +307,14 @@
         console.log('API response:', { status, data });
         
         if (status === 201) {
-          msgElement.innerText = 'Project created successfully!';
-          msgElement.style.color = '#28a745';
+          setStatusMessage('Project created successfully!', 'success');
           form.reset();
           await loadProjects(); // Refresh the project list
         } else {
-          msgElement.innerText = data.error || 'Failed to create project. Please try again.';
-          msgElement.style.color = '#dc3545';
+          setStatusMessage(data.error || 'Failed to create project. Please try again.', 'error');
         }
       } catch (err) {
-        msgElement.innerText = 'Error creating project: ' + (err.message || 'Unknown error');
-        msgElement.style.color = '#dc3545';
+        setStatusMessage('Error creating project: ' + (err.message || 'Unknown error'), 'error');
         console.error('Project creation error:', err);
       }
     };
