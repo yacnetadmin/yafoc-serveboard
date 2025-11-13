@@ -1,5 +1,5 @@
 // admin-create-project-and-slot.js
-// Lets you create a project, then add slots to it, or add slots to an existing project.
+// CLI helper to create projects and slots with Microsoft login via device code flow.
 const readline = require("readline");
 const fetch = global.fetch
   ? global.fetch.bind(global)
@@ -15,6 +15,27 @@ async function prompt(question) {
 
 const cachePath = path.join(__dirname, ".msal-cache.json");
 
+function readConfigValue(key) {
+  const candidateFiles = [
+    path.resolve(__dirname, "..", "..", "docs", "config", "microsoft.json"),
+    path.resolve(__dirname, "..", "..", "frontend", "config", "microsoft.json")
+  ];
+  for (const filePath of candidateFiles) {
+    try {
+      const content = fs.readFileSync(filePath, "utf8");
+      const parsed = JSON.parse(content);
+      if (parsed && parsed[key]) {
+        return parsed[key];
+      }
+    } catch (err) {
+      if (err.code && err.code !== "ENOENT") {
+        console.warn(`Failed to read ${filePath}: ${err.message}`);
+      }
+    }
+  }
+  return null;
+}
+
 const cachePlugin = {
   beforeCacheAccess: async cacheContext => {
     if (fs.existsSync(cachePath)) {
@@ -29,8 +50,8 @@ const cachePlugin = {
   }
 };
 
-let tenantId = (process.env.MICROSOFT_TENANT_ID || "").trim();
-let clientId = (process.env.MICROSOFT_CLIENT_ID || "").trim();
+let tenantId = (process.env.MICROSOFT_TENANT_ID || readConfigValue("tenantId") || "").trim();
+let clientId = (process.env.MICROSOFT_CLIENT_ID || readConfigValue("clientId") || "").trim();
 let scopes;
 let msalApp;
 

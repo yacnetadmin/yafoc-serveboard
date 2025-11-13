@@ -9,10 +9,10 @@
   "dependencies": {
     "@azure/data-tables": "^13.3.1",
     "@azure/functions": "^4.0.0",
+    "@azure/msal-node": "^2.15.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0",
     "node-fetch": "^3.3.2",
-    "@azure/msal-node": "^2.15.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

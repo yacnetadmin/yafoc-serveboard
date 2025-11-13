@@ -2,13 +2,21 @@
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+  Content-Security-Policy: default-src 'self' https://login.microsoftonline.com https://yafoc-serveboard.azurewebsites.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://alcdn.msauth.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://yafoc-serveboard.azurewebsites.net https://graph.microsoft.com
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Cross-Origin-Resource-Policy: cross-origin
+  Access-Control-Allow-Origin: https://login.microsoftonline.com
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
 
 /scripts/*
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+  Content-Security-Policy: default-src 'self' https://login.microsoftonline.com https://yafoc-serveboard.azurewebsites.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://alcdn.msauth.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://yafoc-serveboard.azurewebsites.net https://graph.microsoft.com
 
 /config/*
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+  Content-Security-Policy: default-src 'self' https://login.microsoftonline.com https://yafoc-serveboard.azurewebsites.net; connect-src 'self' https://login.microsoftonline.com https://yafoc-serveboard.azurewebsites.net https://graph.microsoft.com

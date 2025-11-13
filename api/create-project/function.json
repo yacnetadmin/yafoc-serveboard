@@ -1,4 +1,5 @@
 {
+  "disabled": true,
   "scriptFile": "index.js",
   "bindings": [
     {
@@ -7,7 +8,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["post"],
-  "route": "legacy/create-project"
+      "route": "legacy/create-project"
     },
     {
       "type": "http",
