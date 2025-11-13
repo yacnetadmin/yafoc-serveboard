@@ -46,49 +46,42 @@ module.exports = async function (context, req) {
     }
   }
 
-  let slotUpdateCompleted = false;
-  let currentStatus = "available";
+  const volunteerPartition = `${projectId}|${slotId}`;
+
+  const parseSlotMetrics = (entity) => {
+    const rawCapacity = parseInt(entity.Capacity ?? entity.capacity ?? 1, 10);
+    const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
+    const rawFilled = parseInt(entity.FilledCount ?? entity.filledCount ?? (entity.VolunteerEmail ? 1 : 0), 10);
+    const filled = Math.max(0, Number.isFinite(rawFilled) ? rawFilled : 0);
+    return { capacity, filled };
+  };
+
+  const countVolunteers = async () => {
+    let count = 0;
+    const iter = volunteersClient.listEntities({ queryOptions: { filter: `PartitionKey eq '${volunteerPartition}'` } });
+    for await (const entity of iter) {
+      count += 1;
+    }
+    return count;
+  };
+
+  let volunteerRowKey = null;
 
   try {
     const slot = await slotsClient.getEntity(projectId, slotId);
+    const { capacity } = parseSlotMetrics(slot);
+    const currentStatus = (slot.Status || "").toLowerCase();
+    const existingVolunteerCount = await countVolunteers();
 
-    const rawCapacity = parseInt(slot.Capacity ?? slot.capacity ?? 1, 10);
-    const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
-    const rawFilled = parseInt(slot.FilledCount ?? slot.filledCount ?? (slot.VolunteerEmail ? 1 : 0), 10);
-    const filledCount = Math.max(0, Number.isFinite(rawFilled) ? rawFilled : 0);
-    currentStatus = (slot.Status || "").toLowerCase();
-
-    if (filledCount >= capacity) {
+    if (existingVolunteerCount >= capacity) {
       context.res = { status: 409, headers: corsHeaders, body: { error: "This slot is already full." } };
       return;
     }
 
-    const nextStatus = currentStatus === "held"
-      ? "held"
-      : (filledCount + 1 >= capacity ? "filled" : "available");
-
-    const updated = {
-      partitionKey: projectId,
-      rowKey: slotId,
-      PartitionKey: projectId,
-      RowKey: slotId,
-      FilledCount: filledCount + 1,
-      VolunteerFirstName: "",
-      VolunteerLastName: "",
-      VolunteerEmail: "",
-      VolunteerPhone: "",
-      Status: nextStatus,
-      LastVolunteerSignupUtc: new Date().toISOString()
-    };
-
-    const options = slot.etag ? { etag: slot.etag } : { etag: "*" };
-    await slotsClient.updateEntity(updated, "Merge", options);
-    slotUpdateCompleted = true;
-
-    const volunteerPartition = `${projectId}|${slotId}`;
+    volunteerRowKey = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const volunteerEntity = {
       PartitionKey: volunteerPartition,
-      RowKey: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+      RowKey: volunteerRowKey,
       ProjectId: projectId,
       SlotId: slotId,
       FirstName: firstName,
@@ -99,6 +92,39 @@ module.exports = async function (context, req) {
     };
 
     await volunteersClient.createEntity(volunteerEntity);
+
+    const finalFilledCount = existingVolunteerCount + 1;
+    const nextStatus = currentStatus === "held"
+      ? "held"
+      : (finalFilledCount >= capacity ? "filled" : "available");
+
+    try {
+      await slotsClient.updateEntity({
+        partitionKey: projectId,
+        rowKey: slotId,
+        PartitionKey: projectId,
+        RowKey: slotId,
+        FilledCount: finalFilledCount,
+        filledCount: finalFilledCount,
+        Status: nextStatus,
+        LastVolunteerSignupUtc: new Date().toISOString()
+      }, "Merge", slot.etag ? { ifMatch: slot.etag } : undefined);
+    } catch (updateError) {
+      context.log.warn("Slot update failed after volunteer signup, rolling back volunteer entity", {
+        statusCode: updateError.statusCode,
+        message: updateError.message
+      });
+      try {
+        await volunteersClient.deleteEntity(volunteerPartition, volunteerRowKey);
+      } catch (rollbackError) {
+        context.log.error("Failed to remove volunteer entity during rollback", rollbackError);
+      }
+      if (updateError.statusCode === 412 || updateError.statusCode === 409) {
+        context.res = { status: 409, headers: corsHeaders, body: { error: "Sorry, that slot was just taken. Please choose another." } };
+        return;
+      }
+      throw updateError;
+    }
 
     context.res = {
       status: 201,
@@ -112,8 +138,8 @@ module.exports = async function (context, req) {
           time: slot.Time,
           status: nextStatus,
           capacity,
-          filledCount: filledCount + 1,
-          spotsRemaining: Math.max(0, capacity - (filledCount + 1)),
+          filledCount: finalFilledCount,
+          spotsRemaining: Math.max(0, capacity - finalFilledCount),
           volunteer: {
             email,
             firstName,
@@ -124,35 +150,12 @@ module.exports = async function (context, req) {
       }
     };
   } catch (error) {
-    context.log("Error signing up:", error);
-
-    if (slotUpdateCompleted) {
-      try {
-        const slot = await slotsClient.getEntity(projectId, slotId);
-        const rawFilled = parseInt(slot.FilledCount ?? slot.filledCount ?? 1, 10);
-        const safeFilled = Math.max(0, Number.isFinite(rawFilled) ? rawFilled - 1 : 0);
-        const rawCapacity = parseInt(slot.Capacity ?? slot.capacity ?? 1, 10);
-        const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : 1;
-        const rollbackStatus = safeFilled >= capacity
-          ? "filled"
-          : (currentStatus === "held" ? "held" : "available");
-        await slotsClient.updateEntity({
-          partitionKey: projectId,
-          rowKey: slotId,
-          PartitionKey: projectId,
-          RowKey: slotId,
-          FilledCount: safeFilled,
-          Status: rollbackStatus
-        }, "Merge", slot.etag ? { etag: slot.etag } : { etag: "*" });
-      } catch (rollbackError) {
-        context.log.error("Failed to roll back filled count after signup error", rollbackError);
-      }
-    }
+    context.log.error("Error signing up:", error);
     if (error.statusCode === 404) {
       context.res = { status: 404, headers: corsHeaders, body: { error: "Slot not found." } };
       return;
     }
-    if (error.statusCode === 412) {
+    if (error.statusCode === 409 || error.statusCode === 412) {
       context.res = { status: 409, headers: corsHeaders, body: { error: "Sorry, that slot was just taken. Please choose another." } };
       return;
     }
