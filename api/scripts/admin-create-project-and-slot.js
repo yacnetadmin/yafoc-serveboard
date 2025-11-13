@@ -387,9 +387,7 @@ async function simulateSignup(projectId) {
     return;
   }
 
-  const { status, data } = await apiCall("/signup", "POST", {
-    projectId,
-    slotId: slot.id,
+  const { status, data } = await apiCall(`/projects/${projectId}/slots/${slot.id}/signup`, "POST", {
     firstName,
     lastName,
     email,
