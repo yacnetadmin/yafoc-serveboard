@@ -10,6 +10,14 @@
     window.serveboard.apiBaseUrl = window.serveboard.apiBaseUrl || 'https://yafoc-serveboard.azurewebsites.net/api';
   </script>
   <script src="scripts/signup.js" defer></script>
+  <script>
+    function scrollToSignup() {
+      const signupSection = document.getElementById('signupForm');
+      if (signupSection) {
+        signupSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  </script>
 </head>
 <body>
   <main class="page">

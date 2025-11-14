@@ -245,6 +245,12 @@
   };
 
   const selectSlot = (slotId) => {
+    if (selectedSlotId === slotId) {
+      // If the same slot is clicked again, deselect it
+      clearSelectedSlot();
+      return;
+    }
+
     const slot = openSlots.find((entry) => entry.id === slotId);
     if (!slot) return;
 
