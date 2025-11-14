@@ -267,6 +267,12 @@
     submitBtn.disabled = false;
     setSignupMessage('', null);
     applySelectedRowState();
+
+    // Scroll to the signup section
+    const signupSection = document.getElementById('signupForm');
+    if (signupSection) {
+      signupSection.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const loadOpenSlots = async () => {
