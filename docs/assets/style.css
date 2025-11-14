@@ -597,6 +597,85 @@ tbody tr:active { transform: translateY(0); }
 td.right, th.right { text-align: right; }
 td.center, th.center { text-align: center; }
 
+/* Card equivalents for responsive tables */
+.table-cards {
+  display: none;
+  padding: var(--spacing-md);
+  gap: var(--spacing-md);
+}
+
+.table-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: var(--spacing-md);
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.table-card__field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.table-card__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.table-card__value {
+  font-size: 0.98rem;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.table-card__muted { color: var(--color-muted); font-size: 0.9rem; }
+
+.table-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.table-card--message {
+  text-align: center;
+  color: var(--color-muted);
+  border: 1px dashed var(--color-border);
+  background: color-mix(in oklab, var(--color-background), var(--color-surface) 45%);
+}
+
+.table-card--active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary), transparent 65%);
+}
+
+.table-cards--stack .table-card {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+@media (max-width: 599px) {
+  .table-container {
+    box-shadow: none;
+    background: transparent;
+    overflow: visible;
+  }
+  .table-container table {
+    display: none;
+  }
+  .table-cards {
+    display: grid;
+  }
+}
+
+@media (min-width: 600px) {
+  .table-cards {
+    display: none;
+  }
+}
+
 /* ==========================================================================
    11) LISTS (modern, interactive)
    ========================================================================= */

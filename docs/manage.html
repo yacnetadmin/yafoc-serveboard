@@ -51,6 +51,9 @@
               <tr class="table-message"><td colspan="4">Sign in and refresh to load projects.</td></tr>
             </tbody>
           </table>
+          <div id="projectsCardList" class="table-cards">
+            <div class="table-card table-card--message">Sign in and refresh to load projects.</div>
+          </div>
         </div>
       </section>
 
@@ -70,6 +73,7 @@
           <table class="kv-table">
             <tbody id="projectDetailBody"></tbody>
           </table>
+          <div id="projectDetailCardList" class="table-cards table-cards--stack"></div>
         </div>
 
         <div class="stack">
@@ -95,6 +99,9 @@
                 <tr class="table-message"><td colspan="6">Select a project to see its slots.</td></tr>
               </tbody>
             </table>
+            <div id="slotsCardList" class="table-cards">
+              <div class="table-card table-card--message">Select a project to see its slots.</div>
+            </div>
           </div>
           <div id="slotMsg" class="status-message"></div>
 
@@ -246,6 +253,7 @@
 
     const projectOverviewCard = document.getElementById('projectOverviewCard');
     const projectsTableBody = document.getElementById('projectsTableBody');
+  const projectsCardList = document.getElementById('projectsCardList');
     const refreshProjects = document.getElementById('refreshProjects');
     const toggleCreateProject = document.getElementById('toggleCreateProject');
     const createProjectCard = document.getElementById('createProjectCard');
@@ -261,10 +269,12 @@
     const projectDetailTitle = document.getElementById('projectDetailTitle');
     const projectDetailSubtitle = document.getElementById('projectDetailSubtitle');
     const projectDetailBody = document.getElementById('projectDetailBody');
+  const projectDetailCardList = document.getElementById('projectDetailCardList');
     const backToProjects = document.getElementById('backToProjects');
     const editProjectBtn = document.getElementById('editProjectBtn');
 
     const slotsTableBody = document.getElementById('slotsTableBody');
+  const slotsCardList = document.getElementById('slotsCardList');
     const slotMsg = document.getElementById('slotMsg');
     const addSlotBtn = document.getElementById('addSlotBtn');
     const slotForm = document.getElementById('slotForm');
@@ -287,6 +297,7 @@
     let projectsCache = [];
     let selectedProjectId = null;
     let activeProjectRow = null;
+  let activeProjectCard = null;
     let editingProjectId = null;
     let projectMessageClearHandle = null;
     let slotsCache = [];
@@ -473,14 +484,18 @@
       }
     };
 
-    const clearActiveProjectRow = () => {
+    const clearActiveProjectSelection = () => {
       if (activeProjectRow) {
         activeProjectRow.classList.remove('table-row--active');
       }
+      if (activeProjectCard) {
+        activeProjectCard.classList.remove('table-card--active');
+      }
       activeProjectRow = null;
+      activeProjectCard = null;
     };
 
-    const resetProjectTableMessage = (message) => {
+    const setProjectsMessage = (message) => {
       projectsTableBody.innerHTML = '';
       const row = document.createElement('tr');
       row.className = 'table-message';
@@ -489,18 +504,44 @@
       cell.textContent = message;
       row.appendChild(cell);
       projectsTableBody.appendChild(row);
+
+      projectsCardList.innerHTML = '';
+      const card = document.createElement('div');
+      card.className = 'table-card table-card--message';
+      card.textContent = message;
+      projectsCardList.appendChild(card);
     };
 
     const renderProjectsTable = () => {
       projectsTableBody.innerHTML = '';
-      clearActiveProjectRow();
+      projectsCardList.innerHTML = '';
+      clearActiveProjectSelection();
 
       if (!Array.isArray(projectsCache) || projectsCache.length === 0) {
-        resetProjectTableMessage('No projects yet. Select New Project to create one.');
+        setProjectsMessage('No projects yet. Select New Project to create one.');
         selectedProjectId = null;
         hide(projectDetailCard);
         return;
       }
+
+      const addCardField = (card, label, value, secondary) => {
+        const field = document.createElement('div');
+        field.className = 'table-card__field';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'table-card__label';
+        labelEl.textContent = label;
+        const valueEl = document.createElement('span');
+        valueEl.className = 'table-card__value';
+        valueEl.textContent = value;
+        field.append(labelEl, valueEl);
+        if (secondary) {
+          const secondaryEl = document.createElement('span');
+          secondaryEl.className = 'table-card__muted';
+          secondaryEl.textContent = secondary;
+          field.appendChild(secondaryEl);
+        }
+        card.appendChild(field);
+      };
 
       projectsCache.forEach((project) => {
         const row = document.createElement('tr');
@@ -531,18 +572,63 @@
           }
           activeProjectRow = row;
           activeProjectRow.classList.add('table-row--active');
+
+          const linkedCard = projectsCardList.querySelector(`[data-project-id="${project.id}"]`);
+          if (linkedCard) {
+            if (activeProjectCard && activeProjectCard !== linkedCard) {
+              activeProjectCard.classList.remove('table-card--active');
+            }
+            activeProjectCard = linkedCard;
+            activeProjectCard.classList.add('table-card--active');
+          }
+
+          openProjectDetail(project.id);
+        });
+
+        const card = document.createElement('article');
+        card.className = 'table-card';
+        card.dataset.projectId = project.id;
+        addCardField(card, 'Project', project.title || 'Untitled project');
+        addCardField(card, 'Category', project.category || 'General');
+        addCardField(card, 'Volunteers', volunteerSummary, volunteerDetail);
+        addCardField(card, 'Contact', contactName || 'Unassigned');
+        addCardField(card, 'Email', email);
+
+        card.addEventListener('click', () => {
+          if (activeProjectCard && activeProjectCard !== card) {
+            activeProjectCard.classList.remove('table-card--active');
+          }
+          activeProjectCard = card;
+          activeProjectCard.classList.add('table-card--active');
+
+          const linkedRow = projectsTableBody.querySelector(`[data-project-id="${project.id}"]`);
+          if (linkedRow) {
+            if (activeProjectRow && activeProjectRow !== linkedRow) {
+              activeProjectRow.classList.remove('table-row--active');
+            }
+            activeProjectRow = linkedRow;
+            activeProjectRow.classList.add('table-row--active');
+          }
+
           openProjectDetail(project.id);
         });
 
         projectsTableBody.appendChild(row);
+        projectsCardList.appendChild(card);
       });
 
       if (selectedProjectId) {
         const persistedRow = projectsTableBody.querySelector(`[data-project-id="${selectedProjectId}"]`);
+        const persistedCard = projectsCardList.querySelector(`[data-project-id="${selectedProjectId}"]`);
         if (persistedRow) {
           activeProjectRow = persistedRow;
           activeProjectRow.classList.add('table-row--active');
-        } else {
+        }
+        if (persistedCard) {
+          activeProjectCard = persistedCard;
+          activeProjectCard.classList.add('table-card--active');
+        }
+        if (!persistedRow || !persistedCard) {
           selectedProjectId = null;
           hide(projectDetailCard);
         }
@@ -573,6 +659,7 @@
       ];
 
       projectDetailBody.innerHTML = '';
+      projectDetailCardList.innerHTML = '';
       rows.forEach(([label, value]) => {
         const tr = document.createElement('tr');
         const th = document.createElement('th');
@@ -582,6 +669,20 @@
         td.textContent = value;
         tr.append(th, td);
         projectDetailBody.appendChild(tr);
+
+        const card = document.createElement('div');
+        card.className = 'table-card';
+        const field = document.createElement('div');
+        field.className = 'table-card__field';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'table-card__label';
+        labelEl.textContent = label;
+        const valueEl = document.createElement('span');
+        valueEl.className = 'table-card__value';
+        valueEl.textContent = value;
+        field.append(labelEl, valueEl);
+        card.appendChild(field);
+        projectDetailCardList.appendChild(card);
       });
     };
 
@@ -630,6 +731,7 @@
 
     const renderSlotsTable = (slots) => {
       slotsTableBody.innerHTML = '';
+      slotsCardList.innerHTML = '';
 
       if (!Array.isArray(slots) || slots.length === 0) {
         const row = document.createElement('tr');
@@ -639,8 +741,31 @@
         cell.textContent = 'No slots for this project yet.';
         row.appendChild(cell);
         slotsTableBody.appendChild(row);
+        const cardMessage = document.createElement('div');
+        cardMessage.className = 'table-card table-card--message';
+        cardMessage.textContent = 'No slots for this project yet.';
+        slotsCardList.appendChild(cardMessage);
         return;
       }
+
+      const addCardField = (card, label, value, secondary) => {
+        const field = document.createElement('div');
+        field.className = 'table-card__field';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'table-card__label';
+        labelEl.textContent = label;
+        const valueEl = document.createElement('span');
+        valueEl.className = 'table-card__value';
+        valueEl.textContent = value;
+        field.append(labelEl, valueEl);
+        if (secondary) {
+          const secondaryEl = document.createElement('span');
+          secondaryEl.className = 'table-card__muted';
+          secondaryEl.textContent = secondary;
+          field.appendChild(secondaryEl);
+        }
+        card.appendChild(field);
+      };
 
       slots.forEach((slot) => {
         const row = document.createElement('tr');
@@ -663,20 +788,12 @@
         const actionsCell = row.querySelector('td:last-child');
         actionsCell.classList.add('table-actions');
 
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'btn btn-outline btn-inline';
-        editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', (event) => {
+        const handleEditClick = (event) => {
           event.stopPropagation();
           openSlotForm('edit', slot);
-        });
+        };
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'btn btn-ghost btn-inline';
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', async (event) => {
+        const handleDeleteClick = async (event) => {
           event.stopPropagation();
           if (!selectedProjectId) return;
           const confirmed = window.confirm(`Delete slot "${slot.task || slot.title || 'slot'}"?`);
@@ -695,10 +812,46 @@
             console.error('Slot deletion error:', err);
             setSlotMessage('Error deleting slot.', 'error');
           }
-        });
+        };
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-outline btn-inline';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', handleEditClick);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-ghost btn-inline';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', handleDeleteClick);
 
         actionsCell.append(editBtn, deleteBtn);
         slotsTableBody.appendChild(row);
+
+        const card = document.createElement('article');
+        card.className = 'table-card';
+        card.dataset.slotId = slot.id;
+        addCardField(card, 'Task', slot.task || slot.title || 'Untitled slot');
+        addCardField(card, 'Schedule', slot.date || 'N/A', slot.time || 'N/A');
+        addCardField(card, 'Status', slot.status || 'available');
+        addCardField(card, 'Spots', `${metrics.filledCount}/${metrics.capacity} filled`, availabilityLabel);
+
+        const cardActions = document.createElement('div');
+        cardActions.className = 'table-card__actions';
+        const cardEditBtn = document.createElement('button');
+        cardEditBtn.type = 'button';
+        cardEditBtn.className = 'btn btn-outline btn-inline';
+        cardEditBtn.textContent = 'Edit';
+        cardEditBtn.addEventListener('click', handleEditClick);
+        const cardDeleteBtn = document.createElement('button');
+        cardDeleteBtn.type = 'button';
+        cardDeleteBtn.className = 'btn btn-ghost btn-inline';
+        cardDeleteBtn.textContent = 'Delete';
+        cardDeleteBtn.addEventListener('click', handleDeleteClick);
+        cardActions.append(cardEditBtn, cardDeleteBtn);
+        card.appendChild(cardActions);
+        slotsCardList.appendChild(card);
       });
     };
 
@@ -733,6 +886,11 @@
 
     const loadSlots = async (projectId) => {
       slotsTableBody.innerHTML = '';
+      slotsCardList.innerHTML = '';
+      const loadingCard = document.createElement('div');
+      loadingCard.className = 'table-card table-card--message';
+      loadingCard.textContent = 'Loading slots...';
+      slotsCardList.appendChild(loadingCard);
       const loadingRow = document.createElement('tr');
       loadingRow.className = 'table-message';
       const loadingCell = document.createElement('td');
@@ -779,7 +937,7 @@
     };
 
     const loadProjects = async () => {
-      resetProjectTableMessage('Loading projects...');
+  setProjectsMessage('Loading projects...');
       hide(projectDetailCard);
       setSlotMessage('', null);
       closeSlotForm();
@@ -787,7 +945,7 @@
       try {
         const { status, data } = await window.api.apiCall('/api/projects');
         if (status !== 200) {
-          resetProjectTableMessage('Unable to load projects right now. Please try refreshing.');
+          setProjectsMessage('Unable to load projects right now. Please try refreshing.');
           return;
         }
 
@@ -801,7 +959,7 @@
         }
       } catch (err) {
         console.error('Error loading projects:', err);
-        resetProjectTableMessage('Error loading projects. Please try again later.');
+        setProjectsMessage('Error loading projects. Please try again later.');
       }
     };
 
@@ -821,7 +979,7 @@
         hide(projectDetailCard);
         hide(createProjectCard);
         resetProjectFormState();
-        clearActiveProjectRow();
+  clearActiveProjectSelection();
         selectedProjectId = null;
         projectsTableBody.innerHTML = '';
         setProjectMessage('', null);
@@ -886,7 +1044,7 @@
 
     backToProjects.addEventListener('click', () => {
       hide(projectDetailCard);
-      clearActiveProjectRow();
+  clearActiveProjectSelection();
       selectedProjectId = null;
       setSlotMessage('', null);
       closeSlotForm();

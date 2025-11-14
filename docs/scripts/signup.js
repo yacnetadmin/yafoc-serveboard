@@ -6,6 +6,7 @@
 
   const slotsTableBody = document.getElementById('slotsTableBody');
   const slotsMsg = document.getElementById('slotsMsg');
+  const slotsCardList = document.getElementById('slotsCardList');
   const selectedSlotSummary = document.getElementById('selectedSlotSummary');
   const signupForm = document.getElementById('signupForm');
   const signupMsg = document.getElementById('signupMsg');
@@ -14,6 +15,7 @@
   let openSlots = [];
   let selectedSlotId = null;
   let activeSlotRow = null;
+  let activeSlotCard = null;
 
   const setSignupMessage = (message, type) => {
     signupMsg.textContent = message || '';
@@ -41,7 +43,15 @@
     selectedSlotId = null;
     if (activeSlotRow) {
       activeSlotRow.classList.remove('table-row--active');
+      const priorButton = activeSlotRow.querySelector('button');
+      if (priorButton) priorButton.textContent = 'Sign Up';
       activeSlotRow = null;
+    }
+    if (activeSlotCard) {
+      activeSlotCard.classList.remove('table-card--active');
+      const priorCardButton = activeSlotCard.querySelector('button');
+      if (priorCardButton) priorCardButton.textContent = 'Sign Up';
+      activeSlotCard = null;
     }
     selectedSlotSummary.textContent = message || 'Select an open slot above to continue.';
     if (message) {
@@ -59,6 +69,12 @@
       if (priorButton) priorButton.textContent = 'Sign Up';
     }
     activeSlotRow = null;
+    if (activeSlotCard) {
+      activeSlotCard.classList.remove('table-card--active');
+      const priorCardButton = activeSlotCard.querySelector('button');
+      if (priorCardButton) priorCardButton.textContent = 'Sign Up';
+    }
+    activeSlotCard = null;
     if (!selectedSlotId) return;
     const currentRow = slotsTableBody.querySelector(`[data-slot-id="${selectedSlotId}"]`);
     if (currentRow) {
@@ -66,6 +82,13 @@
       const actionButton = currentRow.querySelector('button');
       if (actionButton) actionButton.textContent = 'Selected';
       activeSlotRow = currentRow;
+    }
+    const currentCard = slotsCardList.querySelector(`[data-slot-id="${selectedSlotId}"]`);
+    if (currentCard) {
+      currentCard.classList.add('table-card--active');
+      const actionButton = currentCard.querySelector('button');
+      if (actionButton) actionButton.textContent = 'Selected';
+      activeSlotCard = currentCard;
     }
   };
 
@@ -89,7 +112,7 @@
     return data;
   };
 
-  const showTableMessage = (message) => {
+  const showSlotsListMessage = (message) => {
     slotsTableBody.innerHTML = '';
     const row = document.createElement('tr');
     row.className = 'table-message';
@@ -98,6 +121,12 @@
     cell.textContent = message;
     row.appendChild(cell);
     slotsTableBody.appendChild(row);
+
+    slotsCardList.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'table-card table-card--message';
+    card.textContent = message;
+    slotsCardList.appendChild(card);
   };
 
   const toDisplayTime = (time) => {
@@ -123,11 +152,31 @@
 
   const renderSlotsTable = (slots) => {
     slotsTableBody.innerHTML = '';
+    slotsCardList.innerHTML = '';
 
     if (!Array.isArray(slots) || slots.length === 0) {
-      showTableMessage('No volunteer openings are available right now.');
+      showSlotsListMessage('No volunteer openings are available right now.');
       return;
     }
+
+    const addCardField = (card, label, value, secondary) => {
+      const field = document.createElement('div');
+      field.className = 'table-card__field';
+      const labelEl = document.createElement('span');
+      labelEl.className = 'table-card__label';
+      labelEl.textContent = label;
+      const valueEl = document.createElement('span');
+      valueEl.className = 'table-card__value';
+      valueEl.textContent = value;
+      field.append(labelEl, valueEl);
+      if (secondary) {
+        const secondaryEl = document.createElement('span');
+        secondaryEl.className = 'table-card__muted';
+        secondaryEl.textContent = secondary;
+        field.appendChild(secondaryEl);
+      }
+      card.appendChild(field);
+    };
 
     slots.forEach((slot) => {
       const row = document.createElement('tr');
@@ -158,14 +207,38 @@
       selectBtn.type = 'button';
       selectBtn.className = 'btn btn-secondary btn-inline';
       selectBtn.textContent = 'Sign Up';
+      const handleSelect = () => selectSlot(slot.id);
       selectBtn.addEventListener('click', (event) => {
         event.stopPropagation();
-        selectSlot(slot.id);
+        handleSelect();
       });
-      row.addEventListener('click', () => selectSlot(slot.id));
+      row.addEventListener('click', handleSelect);
       actionCell.appendChild(selectBtn);
 
       slotsTableBody.appendChild(row);
+
+      const card = document.createElement('article');
+      card.className = 'table-card';
+      card.dataset.slotId = slot.id;
+      addCardField(card, 'Project', slot.projectTitle, slot.projectCategory || 'General');
+      addCardField(card, 'Opportunity', slot.task || 'Volunteer slot');
+      addCardField(card, 'Schedule', slot.date || 'Date TBD', toDisplayTime(slot.time));
+      addCardField(card, 'Spots', spotsText, volunteerText);
+
+      const cardActions = document.createElement('div');
+      cardActions.className = 'table-card__actions';
+      const cardButton = document.createElement('button');
+      cardButton.type = 'button';
+      cardButton.className = 'btn btn-secondary btn-inline';
+      cardButton.textContent = 'Sign Up';
+      cardButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        handleSelect();
+      });
+      card.addEventListener('click', handleSelect);
+      cardActions.appendChild(cardButton);
+      card.appendChild(cardActions);
+      slotsCardList.appendChild(card);
     });
 
     applySelectedRowState();
@@ -191,7 +264,7 @@
   };
 
   const loadOpenSlots = async () => {
-    showTableMessage('Loading open slots...');
+    showSlotsListMessage('Loading open slots...');
     setSlotsMessage('', null);
 
     try {
